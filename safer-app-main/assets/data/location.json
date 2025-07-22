@@ -1,0 +1,158 @@
+{
+  "success": true,
+  "data": {
+    "location": [
+      {
+        "id": 1,
+        "name": "Bridgeport",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 2,
+        "name": "Milford",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 3,
+        "name": "New Haven",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 4,
+        "name": "New London",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 5,
+        "name": "Norwalks",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 6,
+        "name": "Greenwich",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 7,
+        "name": "Stamford",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 8,
+        "name": "Darien",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 9,
+        "name": "Norwalk",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 10,
+        "name": "Westport",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 11,
+        "name": "Fairfield",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 12,
+        "name": "Stratford",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 13,
+        "name": "West Haven",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 14,
+        "name": "East Haven",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 15,
+        "name": "Branford",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 16,
+        "name": "Guilford",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 17,
+        "name": "Madison",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 18,
+        "name": "Clinton",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 19,
+        "name": "Westbrook",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 20,
+        "name": "Old Saybrook",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 21,
+        "name": "Old Lyme",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 22,
+        "name": "East Lyme",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 23,
+        "name": "Waterford",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 24,
+        "name": "Groton",
+        "lat": 37.774929,
+        "long": -122.419418
+      },
+      {
+        "id": 25,
+        "name": "Stonington",
+        "lat": 37.774929,
+        "long": -122.419418
+      }
+    ]
+  },
+  "message": "get data success"
+}

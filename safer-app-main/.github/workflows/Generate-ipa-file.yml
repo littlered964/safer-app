@@ -1,0 +1,36 @@
+name: Build ipa file
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v1
+      with:
+        flutter-version: '3.0.2'
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Build .ipa
+      env:
+        APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        APPLE_KEY: ${{ secrets.APPLE_KEY }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        APPLE_PROFILE: ${{ secrets.APPLE_PROFILE }}
+      run: |
+        # Commands to import your certificates and profiles
+        # Set up your Xcode project with the right signing configurations
+        flutter build ipa
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: iOS App
+        path: build/ios/ipa/*.ipa
