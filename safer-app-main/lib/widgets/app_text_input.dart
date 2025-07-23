@@ -4,22 +4,22 @@ class AppTextInput extends StatelessWidget {
   final String hintText;
   final TextEditingController controller;
   final FocusNode focusNode;
-  final VoidCallback onTapIcon;
-  final GestureTapCallback onTap;
-  final ValueChanged<String> onChanged;
-  final ValueChanged<String> onSubmitted;
-  final Icon icon;
+  final VoidCallback? onTapIcon;
+  final GestureTapCallback? onTap;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final Icon? icon;
   final bool obscureText;
-  final TextInputType keyboardType;
-  final TextInputAction textInputAction;
-  final String errorText;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final String? errorText;
   final int maxLines;
 
-  AppTextInput({
-    Key key,
-    this.hintText,
-    this.controller,
-    this.focusNode,
+  const AppTextInput({
+    Key? key,
+    required this.hintText,
+    required this.controller,
+    required this.focusNode,
     this.onTapIcon,
     this.onTap,
     this.onChanged,
@@ -33,18 +33,17 @@ class AppTextInput extends StatelessWidget {
   }) : super(key: key);
 
   Widget _buildErrorLabel(BuildContext context) {
-    if (errorText == null) {
-      return Container();
+    if (errorText == null || errorText!.isEmpty) {
+      return const SizedBox.shrink();
     }
-
     return Container(
-      padding: EdgeInsets.only(left: 16, right: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Text(
-        errorText,
+        errorText!,
         style: Theme.of(context)
             .textTheme
-            .caption
-            .copyWith(color: Theme.of(context).errorColor),
+            .bodySmall
+            ?.copyWith(color: Theme.of(context).colorScheme.error),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -77,14 +76,14 @@ class AppTextInput extends StatelessWidget {
               hintText: hintText,
               suffixIcon: icon != null
                   ? IconButton(
-                      icon: icon,
+                      icon: icon!,
                       onPressed: onTapIcon,
                     )
                   : null,
               border: InputBorder.none,
             ),
           ),
-          _buildErrorLabel(context)
+          _buildErrorLabel(context),
         ],
       ),
     );

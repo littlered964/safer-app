@@ -12,13 +12,13 @@ class CategoryModel {
   final ProductType type;
 
   CategoryModel({
-    this.id,
-    this.title,
-    this.count,
-    this.image,
-    this.icon,
-    this.color,
-    this.type,
+    required this.id,
+    required this.title,
+    required this.count,
+    required this.image,
+    required this.icon,
+    required this.color,
+    required this.type,
   });
 
   static ProductType _setType(String type) {
@@ -47,14 +47,15 @@ class CategoryModel {
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
     final icon = UtilIcon.getIconData(json['icon'] ?? "Unknown");
     final color = UtilColor.getColorFromHex(json['color'] ?? "#ff8a65");
+
     return CategoryModel(
-      id: json['id'] as int ?? 0,
-      title: json['title'] as String ?? 'Unknown',
-      count: json['count'] as int ?? 0,
-      image: json['image'] as String ?? 'Unknown',
+      id: json['id'] ?? 0,
+      title: json['title'] ?? 'Unknown',
+      count: json['count'] ?? 0,
+      image: json['image'] ?? 'Unknown',
       icon: icon,
       color: color,
-      type: _setType(json['type'] as String ?? "Unknown"),
+      type: _setType(json['type'] ?? "Unknown"),
     );
   }
 }

@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 
 class AppListTitle extends StatelessWidget {
   final String title;
-  final Widget trailing;
-  final VoidCallback onPressed;
+  final Widget? trailing;
+  final VoidCallback? onPressed;
   final bool border;
-  final TextStyle textStyle;
+  final TextStyle? textStyle;
 
-  AppListTitle({
-    Key key,
-    this.title,
+  const AppListTitle({
+    Key? key,
+    required this.title, // <-- now required
     this.trailing,
     this.onPressed,
     this.border = true,
@@ -35,13 +35,13 @@ class AppListTitle extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             Padding(
-              padding: EdgeInsets.only(top: 20, bottom: 20),
+              padding: const EdgeInsets.only(top: 20, bottom: 20),
               child: Text(
                 title,
-                style: textStyle ?? Theme.of(context).textTheme.subtitle1,
+                style: textStyle ?? Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            trailing ?? Container()
+            trailing ?? const SizedBox.shrink(), // <-- no null errors
           ],
         ),
       ),

@@ -8,6 +8,8 @@ import 'package:safer/screens/screen.dart';
 import 'package:safer/utils/utils.dart';
 
 class App extends StatefulWidget {
+  const App({super.key});
+
   @override
   _AppState createState() => _AppState();
 }
@@ -15,20 +17,19 @@ class App extends StatefulWidget {
 class _AppState extends State<App> {
   final Routes route = Routes();
 
-  ApplicationBloc _applicationBloc;
-  LanguageBloc _languageBloc;
-  ThemeBloc _themeBloc;
+  late final ApplicationBloc _applicationBloc;
+  late final LanguageBloc _languageBloc;
+  late final ThemeBloc _themeBloc;
 
   @override
   void initState() {
-    // Bloc business logic
+    super.initState();
     _languageBloc = LanguageBloc();
     _themeBloc = ThemeBloc();
     _applicationBloc = ApplicationBloc(
       themeBloc: _themeBloc,
       languageBloc: _languageBloc,
     );
-    super.initState();
   }
 
   @override
@@ -43,15 +44,9 @@ class _AppState extends State<App> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<ApplicationBloc>(
-          create: (context) => _applicationBloc,
-        ),
-        BlocProvider<LanguageBloc>(
-          create: (context) => _languageBloc,
-        ),
-        BlocProvider<ThemeBloc>(
-          create: (context) => _themeBloc,
-        ),
+        BlocProvider<ApplicationBloc>.value(value: _applicationBloc),
+        BlocProvider<LanguageBloc>.value(value: _languageBloc),
+        BlocProvider<ThemeBloc>.value(value: _themeBloc),
       ],
       child: BlocBuilder<LanguageBloc, LanguageState>(
         builder: (context, lang) {
@@ -63,7 +58,7 @@ class _AppState extends State<App> {
                 darkTheme: AppTheme.darkTheme,
                 onGenerateRoute: route.generateRoute,
                 locale: AppLanguage.defaultLanguage,
-                localizationsDelegates: [
+                localizationsDelegates: const [
                   Translate.delegate,
                   GlobalMaterialLocalizations.delegate,
                   GlobalWidgetsLocalizations.delegate,
@@ -71,11 +66,9 @@ class _AppState extends State<App> {
                 supportedLocales: AppLanguage.supportLanguage,
                 home: BlocBuilder<ApplicationBloc, ApplicationState>(
                   builder: (context, app) {
-                    if (app is ApplicationSetupCompleted) {
-                      return MainNavigation();
-                    }
-                    if (app is ApplicationIntroView) {
-                      return MainNavigation();
+                    if (app is ApplicationSetupCompleted ||
+                        app is ApplicationIntroView) {
+                      return const MainNavigation();
                     }
                     return SplashScreen();
                   },

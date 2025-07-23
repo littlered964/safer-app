@@ -2,77 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:safer/configs/config.dart';
 import 'package:safer/models/model.dart';
-import 'package:shimmer/shimmer.dart';
 
 class AppNotificationItem extends StatelessWidget {
   final NotificationModel item;
   final VoidCallback onPressed;
   final bool border;
 
-  AppNotificationItem({
-    Key key,
-    this.item,
-    this.onPressed,
+  const AppNotificationItem({
+    super.key,
+    required this.item,
+    required this.onPressed,
     this.border = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (item == null) {
-      return Shimmer.fromColors(
-        child: Container(
-          padding: EdgeInsets.only(top: 8, bottom: 8, right: 20, left: 20),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  padding: EdgeInsets.only(left: 8, right: 8),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: <Widget>[
-                          Container(
-                            height: 10,
-                            width: 150,
-                            color: Colors.white,
-                          ),
-                          Container(
-                            height: 10,
-                            width: 50,
-                            color: Colors.white,
-                          )
-                        ],
-                      ),
-                      Padding(
-                        padding: EdgeInsets.only(top: 5),
-                      ),
-                      Container(
-                        height: 10,
-                        color: Colors.white,
-                      )
-                    ],
-                  ),
-                ),
-              )
-            ],
-          ),
-        ),
-        baseColor: Theme.of(context).hoverColor,
-        highlightColor: Theme.of(context).highlightColor,
-      );
-    }
     return InkWell(
       onTap: onPressed,
       child: Container(
@@ -116,7 +60,7 @@ class AppNotificationItem extends StatelessWidget {
                           child: Text(
                             item.title,
                             maxLines: 1,
-                            style: Theme.of(context).textTheme.subtitle2,
+                            style: Theme.of(context).textTheme.titleSmall,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -125,7 +69,7 @@ class AppNotificationItem extends StatelessWidget {
                             'hh:mm, MMM dd yyyy',
                             AppLanguage.defaultLanguage.languageCode,
                           ).format(item.date),
-                          style: Theme.of(context).textTheme.caption,
+                          style: Theme.of(context).textTheme.bodySmall,
                         )
                       ],
                     ),
@@ -136,9 +80,9 @@ class AppNotificationItem extends StatelessWidget {
                       item.subtitle,
                       maxLines: 1,
                       style: Theme.of(context)
-                          .textTheme
-                          .caption
-                          .copyWith(fontWeight: FontWeight.w500),
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(fontWeight: FontWeight.w500),
                       overflow: TextOverflow.ellipsis,
                     )
                   ],

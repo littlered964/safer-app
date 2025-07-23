@@ -25,16 +25,16 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      json['id'] as int ?? 0,
-      json['full_name'] as String ?? 'Unknown',
-      json['nickname'] as String ?? 'Unknown',
-      json['photo'] as String ?? 'Unknown',
-      json['url'] as String ?? 'Unknown',
-      json['level'] as String ?? 'Unknown',
-      json['description'] as String ?? 'Unknown',
-      json['tag'] as String ?? 'Unknown',
-      json['rate'] as double ?? 0.0,
-      json['token'] as String ?? 'Unknown',
+      json['id'] as int? ?? 0,
+      json['full_name'] as String? ?? 'Unknown',
+      json['nickname'] as String? ?? 'Unknown',
+      json['photo'] as String? ?? 'Unknown',
+      json['url'] as String? ?? 'Unknown',
+      json['level'] as String? ?? 'Unknown',
+      json['description'] as String? ?? 'Unknown',
+      json['tag'] as String? ?? 'Unknown',
+      (json['rate'] as num?)?.toDouble() ?? 0.0,
+      json['token'] as String? ?? 'Unknown',
     );
   }
 
@@ -51,5 +51,20 @@ class UserModel {
       'rate': rate,
       'token': token,
     };
+  }
+
+  factory UserModel.empty() {
+    return UserModel(
+      0,
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      0.0,
+      '',
+    );
   }
 }

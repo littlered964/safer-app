@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:safer/models/model.dart';
 
 enum Status { sent, received }
@@ -30,22 +29,22 @@ class MessageModel {
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
     Status status = Status.sent;
-    File file;
+    File file = File(''); // Default empty file
     Type type = Type.textMessage;
-    List<UserModel> member;
-    UserModel from;
+    List<UserModel> member = []; // Default empty list
+    UserModel from = UserModel.empty(); // Default empty user
 
     if (json['status'] == 'received') {
       status = Status.received;
     }
 
-    if (json['file'] != null) {
+    if (json['file'] != null && (json['file'] as String).isNotEmpty) {
       file = File(json['file']);
       type = Type.photo;
     }
 
     if (json['member'] != null) {
-      final Iterable convertUser = json['member'] ?? [];
+      final Iterable convertUser = json['member'];
       member = convertUser.map((item) {
         return UserModel.fromJson(item);
       }).toList();
@@ -56,12 +55,12 @@ class MessageModel {
     }
 
     return MessageModel(
-      json['id'] as int ?? 0,
-      json['room_name'] as String ?? '',
+      json['id'] as int? ?? 0,
+      json['room_name'] as String? ?? '',
       member,
       from,
-      json['message'] as String ?? 'Unknown',
-      DateTime.tryParse(json['date']) ?? DateTime.now(),
+      json['message'] as String? ?? 'Unknown',
+      DateTime.tryParse(json['date'] ?? '') ?? DateTime.now(),
       status,
       file,
       type,

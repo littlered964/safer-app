@@ -1,9 +1,7 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:safer/screens/choose_location/choose_location.dart';
-import 'package:safer/screens/safer_main_menu/storm_tracking.dart';
 import 'package:safer/screens/screen.dart';
-import 'package:safer/screens/terms_of_use/terms_of_use.dart';
+import 'package:safer/models/model.dart';
 
 class Routes {
   static const String signIn = "/signIn";
@@ -45,118 +43,86 @@ class Routes {
   Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case termsOfUse:
-        final category = settings.arguments;
+        final category = settings.arguments as String?;
         return MaterialPageRoute(
-          builder: (context) {
-            return TermsOfUse(title: category);
-          },
+          builder: (context) => TermsOfUse(title: category ?? ''),
         );
 
       case chooseLocation:
-        final location = settings.arguments;
+        final location = settings.arguments as List<LocationModel>;
         return MaterialPageRoute(
-          builder: (context) {
-            return ChooseLocation(location: location);
-          },
+          builder: (context) => ChooseLocation(location: location),
         );
 
       case stormTracking:
-        final category = settings.arguments;
+        final category = settings.arguments as String?;
         return MaterialPageRoute(
-          builder: (context) {
-            return StormTracking(title: category);
-          },
+          builder: (context) => StormTracking(title: category ?? ''),
         );
 
       case personalSafety:
-        final category = settings.arguments;
+        final category = settings.arguments as String?;
         return MaterialPageRoute(
-          builder: (context) {
-            return PersonalSafety(title: category);
-          },
+          builder: (context) => PersonalSafety(title: category ?? ''),
         );
 
       case personalRisk:
-        final category = settings.arguments;
+        final category = settings.arguments as String?;
         return MaterialPageRoute(
-          builder: (context) {
-            return PersonalRisk(title: category);
-          },
+          builder: (context) => PersonalRisk(title: category ?? ''),
         );
 
       case propertySafety:
-        final category = settings.arguments;
+        final category = settings.arguments as String?;
         return MaterialPageRoute(
-          builder: (context) {
-            return PropertySafety(title: category);
-          },
+          builder: (context) => PropertySafety(title: category ?? ''),
         );
 
       case propertyRisk:
-        final category = settings.arguments;
+        final category = settings.arguments as String?;
         return MaterialPageRoute(
-          builder: (context) {
-            return PropertyRisk(title: category);
-          },
+          builder: (context) => PropertyRisk(title: category ?? ''),
         );
 
       case supplies:
-        final category = settings.arguments;
+        final category = settings.arguments as String?;
         return MaterialPageRoute(
-          builder: (context) {
-            return Supplies(title: category);
-          },
+          builder: (context) => Supplies(title: category ?? ''),
         );
 
       case evacuation:
-        final category = settings.arguments;
+        final category = settings.arguments as String?;
         return MaterialPageRoute(
-          builder: (context) {
-            return Evacuation(title: category);
-          },
+          builder: (context) => Evacuation(title: category ?? ''),
         );
 
       case stayInTouch:
-        final category = settings.arguments;
+        final category = settings.arguments as String?;
         return MaterialPageRoute(
-          builder: (context) {
-            return StayInTouch(title: category);
-          },
+          builder: (context) => StayInTouch(title: category ?? ''),
         );
 
       case changeLanguage:
         return MaterialPageRoute(
-          builder: (context) {
-            return LanguageSetting();
-          },
+          builder: (context) => LanguageSetting(),
         );
 
       case themeSetting:
         return MaterialPageRoute(
-          builder: (context) {
-            return ThemeSetting();
-          },
+          builder: (context) => ThemeSetting(),
         );
 
       case fontSetting:
         return MaterialPageRoute(
-          builder: (context) {
-            return FontSetting();
-          },
+          builder: (context) => FontSetting(),
         );
 
       default:
         return MaterialPageRoute(
-          builder: (context) {
-            return Scaffold(
-              appBar: AppBar(
-                title: Text("Not Found"),
-              ),
-              body: Center(
-                child: Text('No path for ${settings.name}'),
-              ),
-            );
-          },
+          builder: (context) => Scaffold(
+            appBar: AppBar(title: Text("Not Found")),
+            body: Center(child: Text('No path for ${settings.name}')),
+          ),
         );
     }
   }
@@ -164,9 +130,7 @@ class Routes {
   // Singleton factory
   static final Routes _instance = Routes._internal();
 
-  factory Routes() {
-    return _instance;
-  }
+  factory Routes() => _instance;
 
   Routes._internal();
 }

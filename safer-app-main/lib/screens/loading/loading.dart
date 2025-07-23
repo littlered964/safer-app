@@ -4,7 +4,7 @@ import 'package:safer/blocs/bloc.dart';
 import 'package:safer/configs/config.dart';
 
 class SplashScreen extends StatefulWidget {
-  SplashScreen({Key key}) : super(key: key);
+  const SplashScreen({Key? key}) : super(key: key);
 
   @override
   _SplashScreenState createState() {
@@ -13,7 +13,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  ApplicationBloc _applicationBloc;
+  late ApplicationBloc _applicationBloc;
 
   @override
   void initState() {

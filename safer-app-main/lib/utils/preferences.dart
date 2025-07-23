@@ -14,15 +14,15 @@ class UtilPreferences {
   }
 
   static bool getBool(String key) {
-    return Application.preferences.getBool(key);
+    return Application.preferences.getBool(key) ?? false;
   }
 
   static double getDouble(String key) {
-    return Application.preferences.getDouble(key);
+    return Application.preferences.getDouble(key) ?? 0.0;
   }
 
   static int getInt(String key) {
-    return Application.preferences.getInt(key);
+    return Application.preferences.getInt(key) ?? 0;
   }
 
   static Set<String> getKeys() {
@@ -30,11 +30,11 @@ class UtilPreferences {
   }
 
   static String getString(String key) {
-    return Application.preferences.getString(key);
+    return Application.preferences.getString(key) ?? '';
   }
 
   static List<String> getStringList(String key) {
-    return Application.preferences.getStringList(key);
+    return Application.preferences.getStringList(key) ?? [];
   }
 
   static Future<void> reload() {

@@ -8,17 +8,16 @@ import 'package:safer/utils/utils.dart';
 import 'package:safer/widgets/widget.dart';
 
 class LanguageSetting extends StatefulWidget {
-  LanguageSetting({Key key}) : super(key: key);
+  const LanguageSetting({Key? key}) : super(key: key);
 
   @override
-  _LanguageSettingState createState() {
-    return _LanguageSettingState();
-  }
+  _LanguageSettingState createState() => _LanguageSettingState();
 }
 
 class _LanguageSettingState extends State<LanguageSetting> {
-  LanguageBloc _languageBloc;
+  late LanguageBloc _languageBloc;
   final _textLanguageController = TextEditingController();
+  final _focusNode = FocusNode(); // <-- Added focusNode
   bool _loading = false;
 
   List<Locale> _listLanguage = AppLanguage.supportLanguage;
@@ -30,7 +29,6 @@ class _LanguageSettingState extends State<LanguageSetting> {
     super.initState();
   }
 
-  // On filter language
   void _onFilter(String text) {
     if (text.isEmpty) {
       setState(() {
@@ -39,23 +37,20 @@ class _LanguageSettingState extends State<LanguageSetting> {
       return;
     }
     setState(() {
-      _listLanguage = _listLanguage.where(((item) {
+      _listLanguage = _listLanguage.where((item) {
         return UtilLanguage.getGlobalLanguageName(item.languageCode)
             .toUpperCase()
             .contains(text.toUpperCase());
-      })).toList();
+      }).toList();
     });
   }
 
-  // On change language
   Future<void> _changeLanguage() async {
     UtilOther.hiddenKeyboard(context);
     setState(() {
       _loading = true;
     });
-    _languageBloc.add(
-      ChangeLanguage(_languageSelected),
-    );
+    _languageBloc.add(ChangeLanguage(_languageSelected));
   }
 
   @override
@@ -69,7 +64,7 @@ class _LanguageSettingState extends State<LanguageSetting> {
         child: Column(
           children: <Widget>[
             Padding(
-              padding: EdgeInsets.only(
+              padding: const EdgeInsets.only(
                 left: 20,
                 right: 20,
                 top: 15,
@@ -77,19 +72,21 @@ class _LanguageSettingState extends State<LanguageSetting> {
               ),
               child: AppTextInput(
                 hintText: Translate.of(context).translate('search'),
-                icon: Icon(Icons.clear),
+                icon: const Icon(Icons.clear),
                 controller: _textLanguageController,
+                focusNode: _focusNode, // <-- Added focusNode
                 onChanged: _onFilter,
                 onSubmitted: _onFilter,
                 onTapIcon: () async {
-                  await Future.delayed(Duration(milliseconds: 100));
+                  await Future.delayed(const Duration(milliseconds: 100));
                   _textLanguageController.clear();
                 },
               ),
             ),
             Expanded(
               child: ListView.builder(
-                padding: EdgeInsets.only(left: 20, right: 20),
+                padding: const EdgeInsets.only(left: 20, right: 20),
+                itemCount: _listLanguage.length,
                 itemBuilder: (context, index) {
                   final item = _listLanguage[index];
                   final trailing = item == _languageSelected
@@ -97,17 +94,14 @@ class _LanguageSettingState extends State<LanguageSetting> {
                           Icons.check,
                           color: Theme.of(context).primaryColor,
                         )
-                      : null;
+                      : const SizedBox.shrink();
+
                   return AppListTitle(
-                    title: UtilLanguage.getGlobalLanguageName(
-                      item.languageCode,
-                    ),
+                    title: UtilLanguage.getGlobalLanguageName(item.languageCode),
                     textStyle: item == _languageSelected
-                        ? Theme.of(context)
-                            .textTheme
-                            .subtitle1
+                        ? (Theme.of(context).textTheme.titleMedium ?? const TextStyle())
                             .copyWith(color: Theme.of(context).primaryColor)
-                        : null,
+                        : const TextStyle(),
                     trailing: trailing,
                     onPressed: () {
                       setState(() {
@@ -116,11 +110,10 @@ class _LanguageSettingState extends State<LanguageSetting> {
                     },
                   );
                 },
-                itemCount: _listLanguage.length,
               ),
             ),
             Padding(
-              padding: EdgeInsets.only(
+              padding: const EdgeInsets.only(
                 left: 20,
                 right: 20,
                 top: 15,
@@ -135,15 +128,14 @@ class _LanguageSettingState extends State<LanguageSetting> {
                   }
                 },
                 child: AppButton(
-                  onPressed: () {
-                    _changeLanguage();
-                  },
+                  onPressed: _changeLanguage,
                   text: Translate.of(context).translate('confirm'),
+                  font: Theme.of(context).textTheme.titleMedium, // optional: add font if needed
                   loading: _loading,
                   disableTouchWhenLoading: true,
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),

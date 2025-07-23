@@ -6,10 +6,10 @@ class AppGroupCircleAvatar extends StatelessWidget {
   final double size;
 
   const AppGroupCircleAvatar({
-    Key key,
-    @required this.member,
+    super.key,
+    required this.member,
     this.size = 40,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,14 +20,11 @@ class AppGroupCircleAvatar extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white,
-              width: 2,
-            ),
+            border: Border.all(color: Colors.white, width: 2),
             boxShadow: [
               BoxShadow(
                 color: Colors.grey.withOpacity(.3),
-                offset: Offset(0, 2),
+                offset: const Offset(0, 2),
                 blurRadius: 5,
               )
             ],
@@ -43,14 +40,11 @@ class AppGroupCircleAvatar extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white,
-              width: 2,
-            ),
+            border: Border.all(color: Colors.white, width: 2),
             boxShadow: [
               BoxShadow(
                 color: Colors.grey.withOpacity(.3),
-                offset: Offset(0, 2),
+                offset: const Offset(0, 2),
                 blurRadius: 5,
               )
             ],
@@ -69,10 +63,7 @@ class AppGroupCircleAvatar extends StatelessWidget {
                     ),
                   ),
                 ),
-                Container(
-                  height: 0.5,
-                  color: Colors.white,
-                ),
+                Container(height: 0.5, color: Colors.white),
                 Flexible(
                   flex: 1,
                   child: Container(
@@ -94,86 +85,11 @@ class AppGroupCircleAvatar extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white,
-              width: 2,
-            ),
+            border: Border.all(color: Colors.white, width: 2),
             boxShadow: [
               BoxShadow(
                 color: Colors.grey.withOpacity(.3),
-                offset: Offset(0, 2),
-                blurRadius: 5,
-              )
-            ],
-          ),
-          child: ClipOval(
-            child: Column(
-              children: <Widget>[
-                Flexible(
-                    flex: 1,
-                    child: Row(
-                      children: <Widget>[
-                        Flexible(
-                          flex: 1,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              image: DecorationImage(
-                                image: AssetImage(member[0].image),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Container(
-                          width: 0.5,
-                          color: Colors.white,
-                        ),
-                        Flexible(
-                          flex: 1,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              image: DecorationImage(
-                                image: AssetImage(member[1].image),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                        )
-                      ],
-                    )),
-                Container(
-                  height: 0.5,
-                  color: Colors.white,
-                ),
-                Flexible(
-                  flex: 1,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage(member[2].image),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                )
-              ],
-            ),
-          ),
-        );
-      default:
-        return Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white,
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(.3),
-                offset: Offset(0, 2),
+                offset: const Offset(0, 2),
                 blurRadius: 5,
               )
             ],
@@ -196,10 +112,7 @@ class AppGroupCircleAvatar extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Container(
-                        width: 0.5,
-                        color: Colors.white,
-                      ),
+                      Container(width: 0.5, color: Colors.white),
                       Flexible(
                         flex: 1,
                         child: Container(
@@ -214,10 +127,71 @@ class AppGroupCircleAvatar extends StatelessWidget {
                     ],
                   ),
                 ),
-                Container(
-                  height: 0.5,
-                  color: Colors.white,
+                Container(height: 0.5, color: Colors.white),
+                Flexible(
+                  flex: 1,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage(member[2].image),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                )
+              ],
+            ),
+          ),
+        );
+      default:
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(.3),
+                offset: const Offset(0, 2),
+                blurRadius: 5,
+              )
+            ],
+          ),
+          child: ClipOval(
+            child: Column(
+              children: <Widget>[
+                Flexible(
+                  flex: 1,
+                  child: Row(
+                    children: <Widget>[
+                      Flexible(
+                        flex: 1,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            image: DecorationImage(
+                              image: AssetImage(member[0].image),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Container(width: 0.5, color: Colors.white),
+                      Flexible(
+                        flex: 1,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            image: DecorationImage(
+                              image: AssetImage(member[1].image),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      )
+                    ],
+                  ),
                 ),
+                Container(height: 0.5, color: Colors.white),
                 Flexible(
                   flex: 1,
                   child: Row(
@@ -233,20 +207,18 @@ class AppGroupCircleAvatar extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Container(
-                        width: 0.5,
-                        color: Colors.white,
-                      ),
+                      Container(width: 0.5, color: Colors.white),
                       Flexible(
                         flex: 1,
                         child: Container(
                           alignment: Alignment.center,
-                          padding: EdgeInsets.only(bottom: 2, right: 2),
+                          padding: const EdgeInsets.only(bottom: 2, right: 2),
                           child: Text(
                             '+${member.length - 3}',
-                            style: Theme.of(context).textTheme.caption.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                           ),
                         ),
                       )

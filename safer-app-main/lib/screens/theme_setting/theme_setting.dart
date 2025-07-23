@@ -7,7 +7,7 @@ import 'package:safer/utils/utils.dart';
 import 'package:safer/widgets/widget.dart';
 
 class ThemeSetting extends StatefulWidget {
-  ThemeSetting({Key key}) : super(key: key);
+  const ThemeSetting({Key? key}) : super(key: key);
 
   @override
   _ThemeSettingState createState() {
@@ -16,7 +16,7 @@ class ThemeSetting extends StatefulWidget {
 }
 
 class _ThemeSettingState extends State<ThemeSetting> {
-  ThemeBloc _themeBloc;
+  late ThemeBloc _themeBloc;
   ThemeModel _currentTheme = AppTheme.currentTheme;
 
   @override
@@ -25,9 +25,15 @@ class _ThemeSettingState extends State<ThemeSetting> {
     super.initState();
   }
 
-  // On Change Theme
   void _onChange() {
-    _themeBloc.add(ChangeTheme(theme: _currentTheme));
+    final currentFont = AppTheme.currentFont;
+    final currentDarkOption = AppTheme.darkThemeOption;
+
+    _themeBloc.add(ChangeTheme(
+      theme: _currentTheme,
+      font: currentFont,
+      darkOption: currentDarkOption,
+    ));
   }
 
   @override
@@ -44,7 +50,7 @@ class _ThemeSettingState extends State<ThemeSetting> {
           children: <Widget>[
             Expanded(
               child: ListView.builder(
-                padding: EdgeInsets.only(left: 20, right: 20, top: 10),
+                padding: const EdgeInsets.only(left: 20, right: 20, top: 10),
                 itemBuilder: (context, index) {
                   final item = AppTheme.themeSupport[index];
                   final selected = item.name == _currentTheme.name;
@@ -64,7 +70,7 @@ class _ThemeSettingState extends State<ThemeSetting> {
                         ),
                       ),
                       child: Padding(
-                        padding: EdgeInsets.only(top: 20, bottom: 20),
+                        padding: const EdgeInsets.only(top: 20, bottom: 20),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: <Widget>[
@@ -75,12 +81,12 @@ class _ThemeSettingState extends State<ThemeSetting> {
                                   height: 24,
                                   color: item.color,
                                 ),
-                                Padding(
+                                const Padding(
                                   padding: EdgeInsets.only(left: 10),
                                 ),
                                 Text(
                                   Translate.of(context).translate(item.name),
-                                  style: Theme.of(context).textTheme.subtitle2,
+                                  style: Theme.of(context).textTheme.titleSmall,
                                 )
                               ],
                             ),
@@ -100,7 +106,7 @@ class _ThemeSettingState extends State<ThemeSetting> {
               ),
             ),
             Padding(
-              padding: EdgeInsets.only(
+              padding: const EdgeInsets.only(
                 left: 20,
                 right: 20,
                 top: 15,
@@ -111,12 +117,13 @@ class _ThemeSettingState extends State<ThemeSetting> {
                   return AppButton(
                     onPressed: _onChange,
                     text: Translate.of(context).translate('apply'),
+                    font: Theme.of(context).textTheme.titleMedium,
                     loading: theme is ThemeUpdating,
                     disableTouchWhenLoading: true,
                   );
                 },
               ),
-            )
+            ),
           ],
         ),
       ),

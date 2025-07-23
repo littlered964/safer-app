@@ -4,7 +4,7 @@ import 'package:safer/utils/utils.dart';
 import 'package:safer/widgets/widget.dart';
 
 class Profile extends StatefulWidget {
-  Profile({Key key}) : super(key: key);
+  const Profile({Key? key}) : super(key: key);
 
   @override
   _ProfileState createState() {
@@ -100,7 +100,7 @@ class _ProfileState extends State<Profile> {
                 children: <Widget>[
                   Text(
                     Application.version,
-                    style: Theme.of(context).textTheme.bodyText1,
+                    style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   RotatedBox(
                     quarterTurns: UtilLanguage.isRTL() ? 2 : 0,

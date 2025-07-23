@@ -5,10 +5,11 @@ class AppCircleAvatar extends StatelessWidget {
   final double size;
 
   const AppCircleAvatar({
-    Key key,
-    @required this.imgUrl,
-    this.size = 40.0,
-  }) : super(key: key);
+  super.key,
+  required this.imgUrl,
+  this.size = 40.0,
+});
+
 
   @override
   Widget build(BuildContext context) {

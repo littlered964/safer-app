@@ -8,12 +8,12 @@ class Translate {
   Translate(this.locale);
 
   static Translate of(BuildContext context) {
-    return Localizations.of<Translate>(context, Translate);
+    return Localizations.of<Translate>(context, Translate)!;
   }
 
   static const LocalizationsDelegate<Translate> delegate = AppLocaleDelegate();
 
-  Map<String, String> _localizedStrings;
+  Map<String, String> _localizedStrings = {};
 
   Future<bool> load() async {
     final jsonMap = await UtilAsset.loadJson(

@@ -7,7 +7,7 @@ import 'dart:io';
 class PersonalRisk extends StatefulWidget {
   final String title;
 
-  PersonalRisk({Key key, this.title}) : super(key: key);
+  PersonalRisk({super.key, required this.title});
 
   @override
   _PersonalRiskState createState() {
@@ -18,13 +18,13 @@ class PersonalRisk extends StatefulWidget {
 class _PersonalRiskState extends State<PersonalRisk> {
   bool _loading = false;
 
-  List _specialNeeds = [];
-  List _priorFlooding = [];
-  List _priorDamages = [];
-  List _priorDangers = [];
-  List _priorOutage = [];
-  List _safePlace = [];
-  List _doYouHave = [];
+  List<String> _specialNeeds = [];
+  List<String> _priorFlooding = [];
+  List<String> _priorDamages = [];
+  List<String> _priorDangers = [];
+  List<String> _priorOutage = [];
+  List<String> _safePlace = [];
+  List<String> _doYouHave = [];
 
   Map<String, int> _riskScore = {
     "specialNeeds": 0,
@@ -111,35 +111,39 @@ class _PersonalRiskState extends State<PersonalRisk> {
     var deviceInfo = DeviceInfoPlugin();
     if (Platform.isIOS) {
       var iosDeviceInfo = await deviceInfo.iosInfo;
-      return iosDeviceInfo.identifierForVendor; // unique ID on iOS
+      return iosDeviceInfo.identifierForVendor ?? "unknown-ios-id";
     } else if (Platform.isAndroid) {
       var androidDeviceInfo = await deviceInfo.androidInfo;
-      return androidDeviceInfo.androidId; // unique ID on Android
+      return androidDeviceInfo.id ?? "unknown-android-id"; // updated here
     }
+    return "unknown-device-id"; // fallback
   }
+
+
 
   void senddata() async {
     setState(() {
       _loading = true;
     });
     await http.post(
-        "https://stormassistance.research.uconn.edu/personal_risk.php",
-        body: {
-          "phoneID": await _getId(),
-          "specialNeeds": _specialNeeds.join(", "),
-          "priorFlooding": _priorFlooding.join(", "),
-          "priorDamages": _priorDamages.join(", "),
-          "priorDangers": _priorDangers.join(", "),
-          "priorOutage": _priorOutage.join(", "),
-          "safePlaces": _safePlace.join(", "),
-          "resAvailable": _doYouHave.join(", "),
-          "riskScore":
-              "${_riskScore.values.reduce((sum, element) => sum + element)}",
-        });
+      Uri.parse("https://stormassistance.research.uconn.edu/personal_risk.php"),
+      body: {
+        "phoneID": await _getId(),
+        "specialNeeds": _specialNeeds.join(", "),
+        "priorFlooding": _priorFlooding.join(", "),
+        "priorDamages": _priorDamages.join(", "),
+        "priorDangers": _priorDangers.join(", "),
+        "priorOutage": _priorOutage.join(", "),
+        "safePlaces": _safePlace.join(", "),
+        "resAvailable": _doYouHave.join(", "),
+        "riskScore": "${_riskScore.values.reduce((sum, element) => sum + element)}",
+      },
+    );
     setState(() {
       _loading = false;
     });
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -271,23 +275,16 @@ class _PersonalRiskState extends State<PersonalRisk> {
                   child: Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: _headingData["specialNeeds"].map((item) {
+                    children: (_headingData["specialNeeds"] ?? []).map((item) {
                       final bool selected = _specialNeeds.contains(item);
                       return SizedBox(
                         height: 32,
                         child: FilterChip(
                           selected: selected,
-                          label: Text(
-                            item,
-                            style: TextStyle(
-                              fontFamily: 'Fonto', // Change to the desired font family
-                            ),
-                          ),
-                          backgroundColor: Colors.pink[100], // Chip background color
+                          label: Text(item, style: TextStyle(fontFamily: 'Fonto')),
+                          backgroundColor: Color.fromARGB(255, 130, 200, 21),
                           onSelected: (value) {
-                            selected
-                                ? _specialNeeds.remove(item)
-                                : _specialNeeds.add(item);
+                            selected ? _specialNeeds.remove(item) : _specialNeeds.add(item);
                             setState(() {
                               _specialNeeds = _specialNeeds;
                               _riskScore["specialNeeds"] = _specialNeeds.length;
@@ -336,32 +333,25 @@ class _PersonalRiskState extends State<PersonalRisk> {
                   child: Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: _headingData["priorFlooding"].map((item) {
+                    children: (_headingData["priorFlooding"] ?? []).map((item) {
                       final bool selected = _priorFlooding.contains(item);
                       return SizedBox(
                         height: 32,
                         child: FilterChip(
                           selected: selected,
-                          label: Text(
-                            item,
-                            style: TextStyle(
-                              fontFamily: 'Fonto', // Change to the desired font family
-                            ),
-                          ),
-                          backgroundColor: Colors.pink[100], // Chip background color
+                          label: Text(item, style: TextStyle(fontFamily: 'Fonto')),
+                          backgroundColor: Color.fromARGB(255, 130, 200, 21),
                           onSelected: (value) {
-                            selected
-                                ? _priorFlooding.remove(item)
-                                : _priorFlooding.add(item);
+                            selected ? _priorFlooding.remove(item) : _priorFlooding.add(item);
                             setState(() {
                               _priorFlooding = _priorFlooding;
-                              _riskScore["priorFlooding"] =
-                                  _priorFlooding.length;
+                              _riskScore["priorFlooding"] = _priorFlooding.length;
                             });
                           },
                         ),
                       );
                     }).toList(),
+
                   ),
                 ),
                 Padding(
@@ -402,23 +392,16 @@ class _PersonalRiskState extends State<PersonalRisk> {
                   child: Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: _headingData["priorDamages"].map((item) {
+                    children: (_headingData["priorDamages"] ?? []).map((item) {
                       final bool selected = _priorDamages.contains(item);
                       return SizedBox(
                         height: 32,
                         child: FilterChip(
                           selected: selected,
-                          label: Text(
-                            item,
-                            style: TextStyle(
-                              fontFamily: 'Fonto', // Change to the desired font family
-                            ),
-                          ),
-                          backgroundColor: Colors.pink[100], // Chip background color
+                          label: Text(item, style: TextStyle(fontFamily: 'Fonto')),
+                          backgroundColor: Color.fromARGB(255, 130, 200, 21),
                           onSelected: (value) {
-                            selected
-                                ? _priorDamages.remove(item)
-                                : _priorDamages.add(item);
+                            selected ? _priorDamages.remove(item) : _priorDamages.add(item);
                             setState(() {
                               _priorDamages = _priorDamages;
                               _riskScore["priorDamages"] = _priorDamages.length;
@@ -427,6 +410,7 @@ class _PersonalRiskState extends State<PersonalRisk> {
                         ),
                       );
                     }).toList(),
+
                   ),
                 ),
                 Padding(
@@ -467,23 +451,16 @@ class _PersonalRiskState extends State<PersonalRisk> {
                   child: Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: _headingData["priorDangers"].map((item) {
+                    children: (_headingData["priorDangers"] ?? []).map((item) {
                       final bool selected = _priorDangers.contains(item);
                       return SizedBox(
                         height: 32,
                         child: FilterChip(
                           selected: selected,
-                          label: Text(
-                            item,
-                            style: TextStyle(
-                              fontFamily: 'Fonto', // Change to the desired font family
-                            ),
-                          ),
-                          backgroundColor: Colors.pink[100], // Chip background color
+                          label: Text(item, style: TextStyle(fontFamily: 'Fonto')),
+                          backgroundColor: Color.fromARGB(255, 130, 200, 21),
                           onSelected: (value) {
-                            selected
-                                ? _priorDangers.remove(item)
-                                : _priorDangers.add(item);
+                            selected ? _priorDangers.remove(item) : _priorDangers.add(item);
                             setState(() {
                               _priorDangers = _priorDangers;
                               _riskScore["priorDangers"] = _priorDangers.length;
@@ -532,23 +509,16 @@ class _PersonalRiskState extends State<PersonalRisk> {
                   child: Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: _headingData["priorOutage"].map((item) {
+                    children: (_headingData["priorOutage"] ?? []).map((item) {
                       final bool selected = _priorOutage.contains(item);
                       return SizedBox(
                         height: 32,
                         child: FilterChip(
                           selected: selected,
-                          label: Text(
-                            item,
-                            style: TextStyle(
-                              fontFamily: 'Fonto', // Change to the desired font family
-                            ),
-                          ),
-                          backgroundColor: Colors.pink[100], // Chip background color
+                          label: Text(item, style: TextStyle(fontFamily: 'Fonto')),
+                          backgroundColor: Color.fromARGB(255, 130, 200, 21),
                           onSelected: (value) {
-                            selected
-                                ? _priorOutage.remove(item)
-                                : _priorOutage.add(item);
+                            selected ? _priorOutage.remove(item) : _priorOutage.add(item);
                             setState(() {
                               _priorOutage = _priorOutage;
                               _riskScore["priorOutage"] = _priorOutage.length;
@@ -597,23 +567,16 @@ class _PersonalRiskState extends State<PersonalRisk> {
                   child: Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: _headingData["safePlace"].map((item) {
+                    children: (_headingData["safePlace"] ?? []).map((item) {
                       final bool selected = _safePlace.contains(item);
                       return SizedBox(
                         height: 32,
                         child: FilterChip(
                           selected: selected,
-                          label: Text(
-                            item,
-                            style: TextStyle(
-                              fontFamily: 'Fonto', // Change to the desired font family
-                            ),
-                          ),
-                          backgroundColor: Colors.pink[100], // Chip background color
+                          label: Text(item, style: TextStyle(fontFamily: 'Fonto')),
+                          backgroundColor: Color.fromARGB(255, 130, 200, 21),
                           onSelected: (value) {
-                            selected
-                                ? _safePlace.remove(item)
-                                : _safePlace.add(item);
+                            selected ? _safePlace.remove(item) : _safePlace.add(item);
                             setState(() {
                               _safePlace = _safePlace;
                               _riskScore["safePlace"] = _safePlace.length;
@@ -662,23 +625,16 @@ class _PersonalRiskState extends State<PersonalRisk> {
                   child: Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: _headingData["doYouHave"].map((item) {
+                    children: (_headingData["doYouHave"] ?? []).map((item) {
                       final bool selected = _doYouHave.contains(item);
                       return SizedBox(
                         height: 32,
                         child: FilterChip(
                           selected: selected,
-                          label: Text(
-                            item,
-                            style: TextStyle(
-                              fontFamily: 'Fonto', // Change to the desired font family
-                            ),
-                          ),
-                          backgroundColor: Colors.pink[100], // Chip background color
+                          label: Text(item, style: TextStyle(fontFamily: 'Fonto')),
+                          backgroundColor: Color.fromARGB(255, 130, 200, 21),
                           onSelected: (value) {
-                            selected
-                                ? _doYouHave.remove(item)
-                                : _doYouHave.add(item);
+                            selected ? _doYouHave.remove(item) : _doYouHave.add(item);
                             setState(() {
                               _doYouHave = _doYouHave;
                               _riskScore["doYouHave"] = _doYouHave.length;

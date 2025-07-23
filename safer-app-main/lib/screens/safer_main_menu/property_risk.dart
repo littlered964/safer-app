@@ -8,7 +8,7 @@ import 'dart:io';
 class PropertyRisk extends StatefulWidget {
   final String title;
 
-  PropertyRisk({Key key, this.title}) : super(key: key);
+  PropertyRisk({super.key, required this.title});
 
   @override
   _PropertyRiskState createState() {
@@ -34,8 +34,8 @@ class _PropertyRiskState extends State<PropertyRisk> {
     "treeFalling": 0,
   };
 
-  String homeType;
-  String buildingAge;
+  String homeType = "";
+  String buildingAge = "";
 
   @override
   void initState() {
@@ -46,42 +46,45 @@ class _PropertyRiskState extends State<PropertyRisk> {
     var deviceInfo = DeviceInfoPlugin();
     if (Platform.isIOS) {
       var iosDeviceInfo = await deviceInfo.iosInfo;
-      return iosDeviceInfo.identifierForVendor; // unique ID on iOS
+      return iosDeviceInfo.identifierForVendor ?? "unknown-ios-id"; // provide fallback
     } else if (Platform.isAndroid) {
       var androidDeviceInfo = await deviceInfo.androidInfo;
-      return androidDeviceInfo.androidId; // unique ID on Android
+      return androidDeviceInfo.id ?? "unknown-android-id"; // provide fallback
     }
+    return "unknown-device-id"; // fallback if neither
   }
+
 
   void senddata() async {
     setState(() {
       _loading = true;
     });
     await http.post(
-        "https://stormassistance.research.uconn.edu/property_risk.php",
-        body: {
-          "phoneID": await _getId(),
-          "homeType": homeType == null ? "" : homeType,
-          "buildingAge": buildingAge.toString(),
-          "buildingStructure": _riskScore["buildingStructure"].toString(),
-          "roofAge": _riskScore["roofAge"].toString(),
-          "elevation": _riskScore["elevation"].toString(),
-          "flooding": _riskScore["flooding"].toString(),
-          "drainage": _riskScore["drainage"].toString(),
-          "waterDamage": _riskScore["waterDamage"].toString(),
-          "window": _riskScore["window"].toString(),
-          "sewage": _riskScore["sewage"].toString(),
-          "waterSupply": _riskScore["waterSupply"].toString(),
-          "fuelSupply": _riskScore["fuelSupply"].toString(),
-          "itemSecurity": _riskScore["itemSecurity"].toString(),
-          "treeFalling": _riskScore["treeFalling"].toString(),
-          "riskScore":
-              "${_riskScore.values.reduce((sum, element) => sum + element)}",
-        });
+      Uri.parse("https://stormassistance.research.uconn.edu/property_risk.php"),
+      body: {
+        "phoneID": await _getId(),
+        "homeType": homeType.isEmpty ? "" : homeType,
+        "buildingAge": buildingAge.isEmpty ? "" : buildingAge,
+        "buildingStructure": _riskScore["buildingStructure"].toString(),
+        "roofAge": _riskScore["roofAge"].toString(),
+        "elevation": _riskScore["elevation"].toString(),
+        "flooding": _riskScore["flooding"].toString(),
+        "drainage": _riskScore["drainage"].toString(),
+        "waterDamage": _riskScore["waterDamage"].toString(),
+        "window": _riskScore["window"].toString(),
+        "sewage": _riskScore["sewage"].toString(),
+        "waterSupply": _riskScore["waterSupply"].toString(),
+        "fuelSupply": _riskScore["fuelSupply"].toString(),
+        "itemSecurity": _riskScore["itemSecurity"].toString(),
+        "treeFalling": _riskScore["treeFalling"].toString(),
+        "riskScore": "${_riskScore.values.reduce((sum, element) => sum + element)}",
+      },
+    );
     setState(() {
       _loading = false;
     });
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -100,33 +103,27 @@ class _PropertyRiskState extends State<PropertyRisk> {
               children: [
                 ListTile(
                   leading: CircleAvatar(
-                      backgroundImage: AssetImage('assets/images/house.png')),
+                    backgroundImage: AssetImage('assets/images/house.png'),
+                  ),
                   title: Container(
-                      child: DropdownButton(
-                    hint: homeType == null
-                        ? Text('Home Type')
-                        : Text(
-                            homeType,
-                            style: TextStyle(color: Colors.blue),
-                          ),
-                    isExpanded: true,
-                    iconSize: 40.0,
-                    items: ['Single Family Home', 'Multiple Dwelling Unit'].map(
-                      (val) {
+                    child: DropdownButton<String>(
+                      value: homeType.isNotEmpty ? homeType : null,
+                      hint: const Text('Home Type'),
+                      isExpanded: true,
+                      iconSize: 40.0,
+                      items: ['Single Family Home', 'Multiple Dwelling Unit'].map((val) {
                         return DropdownMenuItem<String>(
                           value: val,
                           child: Text(val),
                         );
+                      }).toList(),
+                      onChanged: (val) {
+                        setState(() {
+                          homeType = val ?? "";
+                        });
                       },
-                    ).toList(),
-                    onChanged: (val) {
-                      setState(
-                        () {
-                          homeType = val;
-                        },
-                      );
-                    },
-                  )),
+                    ),
+                  ),
                   subtitle: Container(
                     child: TextFormField(
                       decoration: InputDecoration(
@@ -226,16 +223,17 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["buildingStructure"].toDouble(),
+                    value: (_riskScore["buildingStructure"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) => setState(
-                        () => _riskScore["buildingStructure"] = value.toInt()),
+                      () => _riskScore["buildingStructure"] = value.toInt(),
+                    ),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -252,16 +250,16 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["roofAge"].toDouble(),
+                    value: (_riskScore["roofAge"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) =>
                         setState(() => _riskScore["roofAge"] = value.toInt()),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -278,16 +276,16 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["elevation"].toDouble(),
+                    value: (_riskScore["elevation"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) =>
                         setState(() => _riskScore["elevation"] = value.toInt()),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -304,16 +302,16 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["flooding"].toDouble(),
+                    value: (_riskScore["flooding"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) =>
                         setState(() => _riskScore["flooding"] = value.toInt()),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -330,16 +328,16 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["drainage"].toDouble(),
+                    value: (_riskScore["drainage"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) =>
                         setState(() => _riskScore["drainage"] = value.toInt()),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -356,16 +354,16 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["waterDamage"].toDouble(),
+                    value: (_riskScore["waterDamage"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
-                    onChanged: (value) => setState(
-                        () => _riskScore["waterDamage"] = value.toInt()),
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
+                    onChanged: (value) =>
+                        setState(() => _riskScore["waterDamage"] = value.toInt()),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -382,16 +380,16 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["window"].toDouble(),
+                    value: (_riskScore["window"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) =>
                         setState(() => _riskScore["window"] = value.toInt()),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -408,16 +406,16 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["sewage"].toDouble(),
+                    value: (_riskScore["sewage"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) =>
                         setState(() => _riskScore["sewage"] = value.toInt()),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -434,16 +432,16 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["waterSupply"].toDouble(),
+                    value: (_riskScore["waterSupply"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
-                    onChanged: (value) => setState(
-                        () => _riskScore["waterSupply"] = value.toInt()),
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
+                    onChanged: (value) =>
+                        setState(() => _riskScore["waterSupply"] = value.toInt()),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -460,16 +458,16 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["fuelSupply"].toDouble(),
+                    value: (_riskScore["fuelSupply"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
-                    onChanged: (value) => setState(
-                        () => _riskScore["fuelSupply"] = value.toInt()),
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
+                    onChanged: (value) =>
+                        setState(() => _riskScore["fuelSupply"] = value.toInt()),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -486,16 +484,16 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["itemSecurity"].toDouble(),
+                    value: (_riskScore["itemSecurity"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
-                    onChanged: (value) => setState(
-                        () => _riskScore["itemSecurity"] = value.toInt()),
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
+                    onChanged: (value) =>
+                        setState(() => _riskScore["itemSecurity"] = value.toInt()),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -512,16 +510,16 @@ class _PropertyRiskState extends State<PropertyRisk> {
                   )),
                 ),
                 Padding(
+                  padding: EdgeInsets.only(left: 10),
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _riskScore["treeFalling"].toDouble(),
+                    value: (_riskScore["treeFalling"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
-                    onChanged: (value) => setState(
-                        () => _riskScore["treeFalling"] = value.toInt()),
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
+                    onChanged: (value) =>
+                        setState(() => _riskScore["treeFalling"] = value.toInt()),
                   ),
-                  padding: EdgeInsets.only(left: 10),
                 ),
               ],
             ),

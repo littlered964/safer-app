@@ -6,26 +6,27 @@ import 'package:safer/configs/config.dart';
 import 'package:safer/utils/utils.dart';
 
 class LanguageBloc extends Bloc<LanguageEvent, LanguageState> {
-  @override
-  LanguageState get initialState => InitialLanguageState();
+  LanguageBloc() : super(InitialLanguageState()) {
+    on<ChangeLanguage>(_onChangeLanguage);
+  }
 
-  @override
-  Stream<LanguageState> mapEventToState(event) async* {
-    if (event is ChangeLanguage) {
-      if (event.locale == AppLanguage.defaultLanguage) {
-        yield LanguageUpdated();
-      } else {
-        yield LanguageUpdating();
-        AppLanguage.defaultLanguage = event.locale;
+  Future<void> _onChangeLanguage(
+    ChangeLanguage event,
+    Emitter<LanguageState> emit,
+  ) async {
+    if (event.locale == AppLanguage.defaultLanguage) {
+      emit(LanguageUpdated());
+    } else {
+      emit(LanguageUpdating());
+      AppLanguage.defaultLanguage = event.locale;
 
-        // Preference save
-        UtilPreferences.setString(
-          Preferences.language,
-          event.locale.languageCode,
-        );
+      // Save preference
+      UtilPreferences.setString(
+        Preferences.language,
+        event.locale.languageCode,
+      );
 
-        yield LanguageUpdated();
-      }
+      emit(LanguageUpdated());
     }
   }
 }

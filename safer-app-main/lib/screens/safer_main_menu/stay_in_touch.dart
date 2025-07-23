@@ -7,7 +7,7 @@ import 'package:safer/utils/utils.dart';
 class StayInTouch extends StatefulWidget {
   final String title;
 
-  StayInTouch({Key key, this.title}) : super(key: key);
+  StayInTouch({Key? key, required this.title}) : super(key: key);
 
   @override
   _StayInTouchState createState() {
@@ -188,24 +188,24 @@ class _StayInTouchState extends State<StayInTouch> {
                   padding: const EdgeInsets.all(8),
                 ),
                 ListTile(
-                    leading: CircleAvatar(
-                        backgroundImage:
-                            AssetImage('assets/images/emergency-service.png')),
-                    title: const Text('Emergency Service Center'),
-                    subtitle: RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                            color: Colors.blue.withOpacity(1),
-                            fontFamily: 'Raleway'),
-                        text: 'City of $location',
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () {
-                            launch(townEmergencyLink[location]);
-                          },
-                      ),
-                    )),
-                Padding(
-                  padding: const EdgeInsets.all(8),
+                  leading: CircleAvatar(
+                      backgroundImage: AssetImage('assets/images/emergency-service.png')),
+                  title: const Text('Emergency Service Center'),
+                  subtitle: RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                          color: Colors.blue.withOpacity(1),
+                          fontFamily: 'Raleway'),
+                      text: 'City of $location',
+                      recognizer: TapGestureRecognizer()
+                        ..onTap = () {
+                          final url = townEmergencyLink[location];
+                          if (url != null && url.isNotEmpty) {
+                            launch(url);
+                          }
+                        },
+                    ),
+                  ),
                 ),
               ],
             ),

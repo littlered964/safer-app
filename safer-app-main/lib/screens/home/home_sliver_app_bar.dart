@@ -6,15 +6,18 @@ class AppBarHomeSliver extends SliverPersistentHeaderDelegate {
   final double expandedHeight;
   final List<ImageModel> banners;
 
-  AppBarHomeSliver({this.expandedHeight, this.banners});
+  AppBarHomeSliver({
+    required this.expandedHeight,
+    required this.banners,
+  });
 
   @override
-  Widget build(context, shrinkOffset, overlapsContent) {
+  Widget build(context, double shrinkOffset, bool overlapsContent) {
     return Stack(
       alignment: Alignment.bottomCenter,
       children: [
         Padding(
-          padding: EdgeInsets.only(bottom: 15),
+          padding: const EdgeInsets.only(bottom: 15),
           child: HomeSwipe(
             images: banners,
             height: expandedHeight,

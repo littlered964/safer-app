@@ -1,33 +1,29 @@
-import 'package:bloc/bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:safer/app.dart';
-import 'package:safer/utils/utils.dart';
 
-class AppDelegate extends BlocDelegate {
-  // Support Development
+class CustomBlocObserver extends BlocObserver {
   @override
-  void onEvent(Bloc bloc, Object event) {
+  void onEvent(Bloc bloc, Object? event) {
     super.onEvent(bloc, event);
-    UtilLogger.log('BLOC EVENT', event);
+    print(event);
   }
 
-  // Support Development
   @override
   void onTransition(Bloc bloc, Transition transition) {
     super.onTransition(bloc, transition);
-    UtilLogger.log('BLOC TRANSITION', transition);
+    print(transition);
   }
 
-  // Support Development
   @override
-  void onError(Bloc bloc, Object error, StackTrace stacktrace) {
-    super.onError(bloc, error, stacktrace);
-    UtilLogger.log('BLOC ERROR', error);
+  void onError(BlocBase bloc, Object error, StackTrace stackTrace) {
+    super.onError(bloc, error, stackTrace);
+    print(error);
   }
 }
 
 void main() {
-  BlocSupervisor.delegate = AppDelegate();
+  Bloc.observer = CustomBlocObserver();
   runApp(App());
 }

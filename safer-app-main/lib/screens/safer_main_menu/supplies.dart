@@ -10,7 +10,7 @@ import 'dart:io';
 class Supplies extends StatefulWidget {
   final String title;
 
-  Supplies({Key key, this.title}) : super(key: key);
+  Supplies({super.key, required this.title});
 
   @override
   _SuppliesState createState() {
@@ -40,36 +40,41 @@ class _SuppliesState extends State<Supplies> {
   }
 
   Future<String> _getId() async {
-    var deviceInfo = DeviceInfoPlugin();
+    final deviceInfo = DeviceInfoPlugin();
+
     if (Platform.isIOS) {
-      var iosDeviceInfo = await deviceInfo.iosInfo;
-      return iosDeviceInfo.identifierForVendor; // unique ID on iOS
+      final iosDeviceInfo = await deviceInfo.iosInfo;
+      return iosDeviceInfo.identifierForVendor ?? "unknown-ios-id";
     } else if (Platform.isAndroid) {
-      var androidDeviceInfo = await deviceInfo.androidInfo;
-      return androidDeviceInfo.androidId; // unique ID on Android
+      final androidDeviceInfo = await deviceInfo.androidInfo;
+      return androidDeviceInfo.id ?? "unknown-android-id";
     }
+    return "unknown-device-id"; // fallback for other platforms
   }
+
 
   void senddata() async {
     setState(() {
       _loading = true;
     });
-    await http
-        .post("https://stormassistance.research.uconn.edu/supplies.php", body: {
-      "phoneID": await _getId(),
-      "necessities": _readinessScore["necessities"].toString(),
-      "food": _readinessScore["food"].toString(),
-      "water": _readinessScore["water"].toString(),
-      "safety": _readinessScore["safety"].toString(),
-      "medical": _readinessScore["medical"].toString(),
-      "care": _readinessScore["care"].toString(),
-      "tools": _readinessScore["tools"].toString(),
-      "communication": _readinessScore["communication"].toString(),
-      "documents": _readinessScore["documents"].toString(),
-      "power": _readinessScore["power"].toString(),
-      "readinessScore":
-          "${_readinessScore.values.reduce((sum, element) => sum + element)}",
-    });
+    await http.post(
+      Uri.parse("https://stormassistance.research.uconn.edu/supplies.php"),
+      body: {
+        "phoneID": await _getId(),
+        "necessities": _readinessScore["necessities"].toString(),
+        "food": _readinessScore["food"].toString(),
+        "water": _readinessScore["water"].toString(),
+        "safety": _readinessScore["safety"].toString(),
+        "medical": _readinessScore["medical"].toString(),
+        "care": _readinessScore["care"].toString(),
+        "tools": _readinessScore["tools"].toString(),
+        "communication": _readinessScore["communication"].toString(),
+        "documents": _readinessScore["documents"].toString(),
+        "power": _readinessScore["power"].toString(),
+        "readinessScore":
+            "${_readinessScore.values.reduce((sum, element) => sum + element)}",
+      },
+    );
     setState(() {
       _loading = false;
     });
@@ -170,9 +175,9 @@ class _SuppliesState extends State<Supplies> {
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _readinessScore["necessities"].toDouble(),
+                    value: (_readinessScore["necessities"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) => setState(
                         () => _readinessScore["necessities"] = value.toInt()),
                   ),
@@ -215,9 +220,9 @@ class _SuppliesState extends State<Supplies> {
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _readinessScore["food"].toDouble(),
+                    value: (_readinessScore["food"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) =>
                         setState(() => _readinessScore["food"] = value.toInt()),
                   ),
@@ -266,9 +271,9 @@ class _SuppliesState extends State<Supplies> {
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _readinessScore["water"].toDouble(),
+                    value: (_readinessScore["water"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) => setState(
                         () => _readinessScore["water"] = value.toInt()),
                   ),
@@ -311,9 +316,9 @@ class _SuppliesState extends State<Supplies> {
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _readinessScore["safety"].toDouble(),
+                    value: (_readinessScore["safety"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) => setState(
                         () => _readinessScore["safety"] = value.toInt()),
                   ),
@@ -354,11 +359,11 @@ class _SuppliesState extends State<Supplies> {
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _readinessScore["medical"].toDouble(),
+                    value: (_readinessScore["medical"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
-                    onChanged: (value) => setState(
-                        () => _readinessScore["medical"] = value.toInt()),
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
+                    onChanged: (value) =>
+                        setState(() => _readinessScore["medical"] = value.toInt()),
                   ),
                   padding: EdgeInsets.only(left: 10),
                 ),
@@ -398,9 +403,9 @@ class _SuppliesState extends State<Supplies> {
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _readinessScore["care"].toDouble(),
+                    value: (_readinessScore["care"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) =>
                         setState(() => _readinessScore["care"] = value.toInt()),
                   ),
@@ -440,11 +445,11 @@ class _SuppliesState extends State<Supplies> {
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _readinessScore["tools"].toDouble(),
+                    value: (_readinessScore["tools"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
-                    onChanged: (value) => setState(
-                        () => _readinessScore["tools"] = value.toInt()),
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
+                    onChanged: (value) =>
+                        setState(() => _readinessScore["tools"] = value.toInt()),
                   ),
                   padding: EdgeInsets.only(left: 10),
                 ),
@@ -486,11 +491,12 @@ class _SuppliesState extends State<Supplies> {
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _readinessScore["communication"].toDouble(),
+                    value: (_readinessScore["communication"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) => setState(
-                        () => _readinessScore["communication"] = value.toInt()),
+                      () => _readinessScore["communication"] = value.toInt(),
+                    ),
                   ),
                   padding: EdgeInsets.only(left: 10),
                 ),
@@ -526,11 +532,12 @@ class _SuppliesState extends State<Supplies> {
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _readinessScore["documents"].toDouble(),
+                    value: (_readinessScore["documents"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) => setState(
-                        () => _readinessScore["documents"] = value.toInt()),
+                      () => _readinessScore["documents"] = value.toInt(),
+                    ),
                   ),
                   padding: EdgeInsets.only(left: 10),
                 ),
@@ -565,11 +572,12 @@ class _SuppliesState extends State<Supplies> {
                   child: SpinBox(
                     min: 0,
                     max: 5,
-                    value: _readinessScore["power"].toDouble(),
+                    value: (_readinessScore["power"] ?? 0).toDouble(),
                     decoration: InputDecoration(border: InputBorder.none),
-                    validator: (text) => text.isEmpty ? 'Invalid' : null,
+                    validator: (text) => (text == null || text.isEmpty) ? 'Invalid' : null,
                     onChanged: (value) => setState(
-                        () => _readinessScore["power"] = value.toInt()),
+                      () => _readinessScore["power"] = value.toInt(),
+                    ),
                   ),
                   padding: EdgeInsets.only(left: 10),
                 ),

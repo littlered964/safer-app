@@ -8,21 +8,19 @@ import 'package:safer/widgets/widget.dart';
 class ChooseLocation extends StatefulWidget {
   final List<LocationModel> location;
 
-  ChooseLocation({Key key, this.location}) : super(key: key);
+  const ChooseLocation({required this.location, super.key});
 
   @override
-  _ChooseLocationState createState() {
-    return _ChooseLocationState();
-  }
+  _ChooseLocationState createState() => _ChooseLocationState();
 }
 
 class _ChooseLocationState extends State<ChooseLocation> {
   final _textLanguageController = TextEditingController();
   bool _loading = false;
 
-  List<LocationModel> _location;
-  List<LocationModel> _locationBackup;
-  List<LocationModel> _locationSelected;
+  late List<LocationModel> _location;
+  late List<LocationModel> _locationBackup;
+  late List<LocationModel> _locationSelected;
 
   @override
   void initState() {
@@ -36,13 +34,8 @@ class _ChooseLocationState extends State<ChooseLocation> {
     if (result.success) {
       final Iterable data = result.data['location'] ?? [];
       setState(() {
-        _location = data.map((item) {
-          return LocationModel.fromJson(item);
-        }).toList();
-
-        // Sort the locations by name
+        _location = data.map((item) => LocationModel.fromJson(item)).toList();
         _location.sort((a, b) => a.name.compareTo(b.name));
-        
         _locationBackup = _location;
         _locationSelected = widget.location;
       });
@@ -51,81 +44,57 @@ class _ChooseLocationState extends State<ChooseLocation> {
 
   // On filter location
   void _onFilter(String text) {
-    if (text.isEmpty) {
-      setState(() {
-        _location = _locationBackup;
-      });
-      return;
-    }
     setState(() {
-      _location = _location.where(((item) {
-        return item.name.toUpperCase().contains(text.toUpperCase());
-      })).toList();
+      _location = text.isEmpty
+          ? _locationBackup
+          : _locationBackup
+              .where((item) =>
+                  item.name.toUpperCase().contains(text.toUpperCase()))
+              .toList();
     });
   }
 
   // On Select Location
   void _onSelect(LocationModel item) {
-    if (_locationSelected.contains(item)) {
-      _locationSelected.remove(item);
-    } else {
-      _locationSelected = [];
-      _locationSelected.add(item);
-    }
     setState(() {
-      _locationSelected = _locationSelected;
+      if (_locationSelected.contains(item)) {
+        _locationSelected.remove(item);
+      } else {
+        _locationSelected = [item];
+      }
     });
   }
 
   // Build List location
   Widget _buildContent() {
-    if (_location == null) {
-      return Center(
-        child: SizedBox(
-          width: 26,
-          height: 26,
-          child: CircularProgressIndicator(
-            strokeWidth: 1.5,
-          ),
-        ),
-      );
-    }
-
     return ListView.builder(
-      padding: EdgeInsets.only(left: 20, right: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      itemCount: _location.length,
       itemBuilder: (context, index) {
         final item = _location[index];
-        final trailing = _locationSelected.contains(item)
-            ? Icon(
-                Icons.check,
-                color: Theme.of(context).primaryColor,
-              )
-            : null;
+        final selected = _locationSelected.contains(item);
         return AppListTitle(
           title: item.name,
-          textStyle: _locationSelected.contains(item)
+          textStyle: selected
               ? Theme.of(context)
                   .textTheme
-                  .subtitle1
-                  .copyWith(color: Theme.of(context).primaryColor)
+                  .titleMedium
+                  ?.copyWith(color: Theme.of(context).primaryColor)
               : null,
-          trailing: trailing,
-          onPressed: () {
-            _onSelect(item);
-          },
+          trailing: selected
+              ? Icon(Icons.check, color: Theme.of(context).primaryColor)
+              : null,
+          onPressed: () => _onSelect(item),
         );
       },
-      itemCount: _location.length,
     );
   }
 
   // On change language
   Future<void> _onChange() async {
     UtilOther.hiddenKeyboard(context);
-    setState(() {
-      _loading = true;
-    });
-    await Future.delayed(Duration(seconds: 1));
+    setState(() => _loading = true);
+    await Future.delayed(const Duration(seconds: 1));
     Navigator.pop(context, _locationSelected);
   }
 
@@ -134,46 +103,31 @@ class _ChooseLocationState extends State<ChooseLocation> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: Text(
-          Translate.of(context).translate('location'),
-        ),
+        title: Text(Translate.of(context).translate('location')),
       ),
       body: SafeArea(
         child: Column(
           children: <Widget>[
             Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 15,
-                bottom: 15,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
               child: AppTextInput(
                 hintText: Translate.of(context).translate('search'),
-                icon: Icon(Icons.clear),
+                icon: const Icon(Icons.clear),
                 controller: _textLanguageController,
+                focusNode: FocusNode(), // Required fix
                 onChanged: _onFilter,
                 onSubmitted: _onFilter,
                 onTapIcon: () async {
-                  await Future.delayed(Duration(milliseconds: 100));
+                  await Future.delayed(const Duration(milliseconds: 100));
                   _textLanguageController.clear();
                 },
               ),
             ),
-            Expanded(
-              child: _buildContent(),
-            ),
+            Expanded(child: _buildContent()),
             Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 15,
-                bottom: 15,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
               child: AppButton(
-                onPressed: () {
-                  _onChange();
-                },
+                onPressed: _onChange,
                 text: Translate.of(context).translate('apply'),
                 loading: _loading,
                 disableTouchWhenLoading: true,

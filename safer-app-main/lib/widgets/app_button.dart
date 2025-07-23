@@ -1,50 +1,48 @@
 import 'package:flutter/material.dart';
 
 class AppButton extends StatelessWidget {
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final String text;
+  final TextStyle? font;
   final bool loading;
   final bool disableTouchWhenLoading;
-  final ShapeBorder shape;
+  final OutlinedBorder? shape;
 
-  AppButton({
-    Key key,
-    this.onPressed,
-    this.text,
+  const AppButton({
+    Key? key,
+    required this.onPressed,
+    required this.text,
+    this.font,
     this.loading = false,
     this.disableTouchWhenLoading = false,
     this.shape,
   }) : super(key: key);
 
-  Widget _buildLoading() {
-    if (!loading) {
-      return Container();
-    }
-    return Container(
-      margin: EdgeInsets.only(left: 10, right: 10),
-      width: 14,
-      height: 14,
-      child: CircularProgressIndicator(strokeWidth: 2),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return RaisedButton(
-      shape: shape,
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(shape: shape),
       onPressed: disableTouchWhenLoading && loading ? null : onPressed,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
+        mainAxisSize: MainAxisSize.min,
+        children: [
           Text(
             text,
-            style: Theme.of(context)
-                .textTheme
-                .button
-                .copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+            style: font ??
+                Theme.of(context)
+                    .textTheme
+                    .labelLarge
+                    ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
           ),
-          _buildLoading()
+          if (loading) ...[
+            const SizedBox(width: 10),
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ],
         ],
       ),
     );

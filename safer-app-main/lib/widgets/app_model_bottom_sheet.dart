@@ -6,23 +6,21 @@ import 'package:safer/widgets/widget.dart';
 class AppModelBottomSheet extends StatefulWidget {
   final SortModel selected;
   final List<SortModel> option;
-  final ValueChanged onChange;
+  final ValueChanged<SortModel> onChange;
 
-  AppModelBottomSheet({
-    Key key,
-    this.selected,
-    this.option,
-    this.onChange,
-  }) : super(key: key);
+  const AppModelBottomSheet({
+    super.key,
+    required this.selected,
+    required this.option,
+    required this.onChange,
+  });
 
   @override
-  _AppModelBottomSheetState createState() {
-    return _AppModelBottomSheetState();
-  }
+  _AppModelBottomSheetState createState() => _AppModelBottomSheetState();
 }
 
 class _AppModelBottomSheetState extends State<AppModelBottomSheet> {
-  SortModel _currentSort;
+  late SortModel _currentSort;
 
   @override
   void initState() {
@@ -37,25 +35,23 @@ class _AppModelBottomSheetState extends State<AppModelBottomSheet> {
       child: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: BorderRadius.only(
+          borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(10),
             topRight: Radius.circular(10),
           ),
         ),
         child: Padding(
-          padding: EdgeInsets.only(left: 20, right: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: SingleChildScrollView(
             child: IntrinsicHeight(
               child: Column(
                 children: <Widget>[
                   Container(
-                    margin: EdgeInsets.all(10),
+                    margin: const EdgeInsets.all(10),
                     width: 40,
                     height: 3,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(10),
-                      ),
+                      borderRadius: BorderRadius.circular(10),
                       color: Theme.of(context).dividerColor,
                     ),
                   ),
@@ -66,15 +62,15 @@ class _AppModelBottomSheetState extends State<AppModelBottomSheet> {
                         textStyle: item.code == _currentSort.code
                             ? Theme.of(context)
                                 .textTheme
-                                .subtitle1
-                                .copyWith(color: Theme.of(context).primaryColor)
+                                .titleMedium
+                                ?.copyWith(color: Theme.of(context).primaryColor)
                             : null,
                         trailing: item.code == _currentSort.code
                             ? Icon(
                                 Icons.check,
                                 color: Theme.of(context).primaryColor,
                               )
-                            : Container(),
+                            : const SizedBox.shrink(),
                         onPressed: () {
                           setState(() {
                             _currentSort = item;
@@ -84,7 +80,7 @@ class _AppModelBottomSheetState extends State<AppModelBottomSheet> {
                     }).toList(),
                   ),
                   Padding(
-                    padding: EdgeInsets.only(top: 20, bottom: 20),
+                    padding: const EdgeInsets.symmetric(vertical: 20),
                     child: AppButton(
                       onPressed: () {
                         widget.onChange(_currentSort);

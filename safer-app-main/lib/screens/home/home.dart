@@ -9,16 +9,14 @@ import 'package:safer/utils/utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class Home extends StatefulWidget {
-  Home({Key key}) : super(key: key);
+  const Home({super.key});
 
   @override
-  _HomeState createState() {
-    return _HomeState();
-  }
+  _HomeState createState() => _HomeState();
 }
 
 class _HomeState extends State<Home> {
-  HomePageModel _homePage;
+  HomePageModel? _homePage;
   List<LocationModel> _locationSelected = [];
 
   @override
@@ -31,7 +29,6 @@ class _HomeState extends State<Home> {
     UtilPreferences.setString(Preferences.location, currentLocation);
   }
 
-  // Fetch API
   Future<void> _loadData() async {
     final ResultApiModel result = await Api.getHome();
     if (result.success) {
@@ -41,28 +38,22 @@ class _HomeState extends State<Home> {
     }
   }
 
-  // On select category
   void _onTapService(CategoryModel item) {
     switch (item.title) {
       case 'Storm Tracking':
-        Navigator.pushNamed(context, Routes.stormTracking,
-            arguments: item.title);
+        Navigator.pushNamed(context, Routes.stormTracking, arguments: item.title);
         break;
       case 'Personal Safety':
-        Navigator.pushNamed(context, Routes.personalSafety,
-            arguments: item.title);
+        Navigator.pushNamed(context, Routes.personalSafety, arguments: item.title);
         break;
       case 'Personal Risk':
-        Navigator.pushNamed(context, Routes.personalRisk,
-            arguments: item.title);
+        Navigator.pushNamed(context, Routes.personalRisk, arguments: item.title);
         break;
       case 'Property Safety':
-        Navigator.pushNamed(context, Routes.propertySafety,
-            arguments: item.title);
+        Navigator.pushNamed(context, Routes.propertySafety, arguments: item.title);
         break;
       case 'Property Risk':
-        Navigator.pushNamed(context, Routes.propertyRisk,
-            arguments: item.title);
+        Navigator.pushNamed(context, Routes.propertyRisk, arguments: item.title);
         break;
       case 'Supplies':
         Navigator.pushNamed(context, Routes.supplies, arguments: item.title);
@@ -78,35 +69,38 @@ class _HomeState extends State<Home> {
     }
   }
 
-  // Build category UI
   Widget _buildCategory() {
     if (_homePage?.category == null) {
       return Wrap(
         runSpacing: 10,
         alignment: WrapAlignment.center,
-        children: List.generate(8, (index) => index).map(
-          (item) {
-            return HomeCategoryItem();
-          },
-        ).toList(),
+        children: List.generate(
+          8,
+          (index) => HomeCategoryItem(
+            item: CategoryModel(
+              id: index,
+              title: 'Loading...',
+              icon: Icons.hourglass_empty,
+              color: Colors.grey,
+              image: '',
+              count: 0,
+              type: ProductType.more,
+            ),
+            onPressed: (_) {},
+          ),
+        ),
       );
     }
-
-    List<CategoryModel> listBuild = _homePage.category;
 
     return Wrap(
       runSpacing: 10,
       alignment: WrapAlignment.center,
-      children: listBuild.map(
-        (item) {
-          return HomeCategoryItem(
-            item: item,
-            onPressed: (item) {
-              _onTapService(item);
-            },
-          );
-        },
-      ).toList(),
+      children: _homePage!.category.map((item) {
+        return HomeCategoryItem(
+          item: item,
+          onPressed: _onTapService,
+        );
+      }).toList(),
     );
   }
 
@@ -118,7 +112,7 @@ class _HomeState extends State<Home> {
     );
     if (result != null) {
       setState(() {
-        _locationSelected = result;
+        _locationSelected = result as List<LocationModel>;
       });
       updateLocation(_locationSelected[0].name);
     }
@@ -148,118 +142,86 @@ class _HomeState extends State<Home> {
                 child: Column(
                   children: <Widget>[
                     Padding(
-                      padding: EdgeInsets.only(
-                        top: 15,
-                        right: 20,
-                        left: 20,
-                      ),
+                      padding: const EdgeInsets.only(top: 15, right: 20, left: 20),
                       child: InkWell(
                         onTap: _onNavigateLocation,
-                        child: Container(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: <Widget>[
-                              Expanded(
-                                child: Container(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      Text(
-                                        Translate.of(context)
-                                            .translate('location'),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .headline6
-                                            .copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                      Padding(
-                                        padding: EdgeInsets.only(top: 5),
-                                        child: Text(
-                                          _buildLocationText(),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .caption
-                                              .copyWith(
-                                                color: Theme.of(context)
-                                                    .primaryColor,
-                                              ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: <Widget>[
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    Translate.of(context).translate('location'),
+                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                          fontWeight: FontWeight.w600,
                                         ),
-                                      ),
-                                    ],
                                   ),
-                                ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    _buildLocationText(),
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Theme.of(context).primaryColor,
+                                        ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
-                              RotatedBox(
-                                quarterTurns: UtilLanguage.isRTL() ? 2 : 0,
-                                child: Icon(
-                                  Icons.keyboard_arrow_right,
-                                  textDirection: TextDirection.ltr,
-                                ),
-                              )
-                            ],
-                          ),
+                            ),
+                            RotatedBox(
+                              quarterTurns: UtilLanguage.isRTL() ? 2 : 0,
+                              child: const Icon(
+                                Icons.keyboard_arrow_right,
+                                textDirection: TextDirection.ltr,
+                              ),
+                            )
+                          ],
                         ),
                       ),
                     ),
-                    Container(
-                      padding: EdgeInsets.only(
-                        top: 15,
-                        bottom: 0,
-                        left: 35,
-                        right: 35,
-                      ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 15),
                       child: _buildCategory(),
                     ),
-                    Container(
-                      padding: EdgeInsets.only(
-                        top: 15,
-                        left: 20,
-                        right: 20,
-                      ),
-                      child: Row(
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                'Dashboard',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headline6
-                                    .copyWith(fontWeight: FontWeight.w600),
+                          Text(
+                            'Dashboard',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Urgent Care and Red Cross Facilities Map',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8.0),
+                            child: GestureDetector(
+                              onTap: () {
+                                launch(
+                                  'https://connecticut.maps.arcgis.com/apps/opsdashboard/index.html#/728b88c606af45dcb3f891ffa20ee7cf',
+                                );
+                              },
+                              child: Image.asset(
+                                'assets/images/dashboard.png',
+                                fit: BoxFit.cover,
+                                width: MediaQuery.of(context).size.width * 0.89,
                               ),
-                              Padding(padding: EdgeInsets.only(top: 3)),
-                              Text(
-                                'Urgent Care and Red Cross Facilities Map',
-                                style: Theme.of(context).textTheme.bodyText1,
-                              ),
-                              Padding(padding: EdgeInsets.only(top: 10)),
-                              Container(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.89,
-                                  child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8.0),
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          launch(
-                                              'https://connecticut.maps.arcgis.com/apps/opsdashboard/index.html#/728b88c606af45dcb3f891ffa20ee7cf');
-                                        },
-                                        child: Image.asset(
-                                          'assets/images/dashboard.png',
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ))),
-                              Padding(padding: EdgeInsets.only(top: 10)),
-                              Text(
-                                '© 2022 Carolyn A. Lin All Rights Reserved',
-                                style: Theme.of(context).textTheme.bodyText1,
-                              )
-                            ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '© 2022 Carolyn A. Lin All Rights Reserved',
+                            style: Theme.of(context).textTheme.bodyLarge,
                           ),
                         ],
                       ),

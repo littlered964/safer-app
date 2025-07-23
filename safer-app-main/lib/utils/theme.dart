@@ -7,6 +7,7 @@ class UtilTheme {
         return "dynamic_theme";
       case DarkOption.alwaysOff:
         return "always_off";
+      case DarkOption.alwaysOn:
       default:
         return "always_on";
     }

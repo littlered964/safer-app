@@ -10,7 +10,7 @@ enum ProductType {
   job,
   restaurant,
   automotive,
-  more
+  more,
 }
 
 class ProductModel {
@@ -72,71 +72,57 @@ class ProductModel {
     this.type,
   );
 
-  static List<HourModel> _setHourDetail(hour) {
+  static List<HourModel> _setHourDetail(dynamic hour) {
     if (hour != null) {
       final Iterable refactorHour = hour;
-      return refactorHour.map((item) {
-        return HourModel.fromJson(item);
-      }).toList();
+      return refactorHour.map((item) => HourModel.fromJson(item)).toList();
     }
-    return null;
+    return [];
   }
 
-  static List<IconModel> _setService(icon) {
+  static List<IconModel> _setService(dynamic icon) {
     if (icon != null) {
       final Iterable refactorService = icon;
-      return refactorService.map((item) {
-        return IconModel.fromJson(item);
-      }).toList();
+      return refactorService.map((item) => IconModel.fromJson(item)).toList();
     }
-    return null;
+    return [];
   }
 
-  static List<ImageModel> _setPhoto(photo) {
+  static List<ImageModel> _setPhoto(dynamic photo) {
     if (photo != null) {
       final Iterable refactorPhoto = photo;
-      return refactorPhoto.map((item) {
-        return ImageModel.fromJson(item);
-      }).toList();
+      return refactorPhoto.map((item) => ImageModel.fromJson(item)).toList();
     }
-    return null;
+    return [];
   }
 
-  static List<ProductModel> _setFeature(feature) {
+  static List<ProductModel> _setFeature(dynamic feature) {
     if (feature != null) {
       final Iterable refactorFeature = feature;
-      return refactorFeature.map((item) {
-        return ProductModel.fromJson(item);
-      }).toList();
+      return refactorFeature.map((item) => ProductModel.fromJson(item)).toList();
     }
-    return null;
+    return [];
   }
 
-  static List<ProductModel> _setRelated(related) {
+  static List<ProductModel> _setRelated(dynamic related) {
     if (related != null) {
       final Iterable refactorRelated = related;
-      return refactorRelated.map((item) {
-        return ProductModel.fromJson(item);
-      }).toList();
+      return refactorRelated.map((item) => ProductModel.fromJson(item)).toList();
     }
-    return null;
+    return [];
   }
 
-  static LocationModel _setLocation(Map<String, dynamic> location) {
-    if (location != null) {
-      return LocationModel.fromJson(location);
-    }
-    return null;
+  static LocationModel _setLocation(Map<String, dynamic>? location) {
+    return location != null ? LocationModel.fromJson(location) : LocationModel(0, "Unknown", 0.0, 0.0);
   }
 
-  static UserModel _setAuthor(Map<String, dynamic> author) {
-    if (author != null) {
-      return UserModel.fromJson(author);
-    }
-    return null;
+  static UserModel _setAuthor(Map<String, dynamic>? author) {
+    return author != null
+        ? UserModel.fromJson(author)
+        : UserModel(0, "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", 0.0, "Unknown");
   }
 
-  static ProductType _setType(String type) {
+  static ProductType _setType(String? type) {
     switch (type) {
       case 'hotel':
         return ProductType.hotel;
@@ -161,25 +147,25 @@ class ProductModel {
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     return ProductModel(
-      json['id'] as int ?? 0,
-      json['title'] as String ?? 'Unknown',
-      json['subtitle'] as String ?? 'Unknown',
-      json['image'] as String ?? 'Unknown',
-      json['created_date'] as String ?? 'Unknown',
-      json['like'] as bool ?? false,
-      json['rate'] as num ?? 0,
-      json['num_rate'] as num ?? 0,
-      json['rate_text'] as String ?? 'Unknown',
-      json['status'] as String ?? null,
-      json['favorite'] as bool ?? false,
-      json['address'] as String ?? 'Unknown',
-      json['phone'] as String ?? 'Unknown',
-      json['email'] as String ?? 'Unknown',
-      json['website'] as String ?? 'Unknown',
-      json['hour'] as String ?? 'Unknown',
-      json['description'] as String ?? 'Unknown',
-      json['date'] as String ?? 'Unknown',
-      json['price_range'] as String ?? 'Unknown',
+      json['id'] as int? ?? 0,
+      json['title'] as String? ?? 'Unknown',
+      json['subtitle'] as String? ?? 'Unknown',
+      json['image'] as String? ?? 'Unknown',
+      json['created_date'] as String? ?? 'Unknown',
+      json['like'] as bool? ?? false,
+      json['rate'] as num? ?? 0,
+      json['num_rate'] as num? ?? 0,
+      json['rate_text'] as String? ?? 'Unknown',
+      json['status'] as String? ?? '',
+      json['favorite'] as bool? ?? false,
+      json['address'] as String? ?? 'Unknown',
+      json['phone'] as String? ?? 'Unknown',
+      json['email'] as String? ?? 'Unknown',
+      json['website'] as String? ?? 'Unknown',
+      json['hour'] as String? ?? 'Unknown',
+      json['description'] as String? ?? 'Unknown',
+      json['date'] as String? ?? 'Unknown',
+      json['price_range'] as String? ?? 'Unknown',
       _setHourDetail(json['hour_detail']),
       _setService(json['service']),
       _setPhoto(json['photo']),

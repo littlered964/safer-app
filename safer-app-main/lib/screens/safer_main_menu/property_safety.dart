@@ -7,7 +7,7 @@ import 'package:safer/utils/utils.dart';
 class PropertySafety extends StatefulWidget {
   final String title;
 
-  PropertySafety({Key key, this.title}) : super(key: key);
+  const PropertySafety({Key? key, required this.title}) : super(key: key);
 
   @override
   _PropertySafetyState createState() {
@@ -185,7 +185,7 @@ class _PropertySafetyState extends State<PropertySafety> {
                         recognizer: TapGestureRecognizer()
                           ..onTap = () {
                             launch(
-                                'https://www.semswa.org/education-outreach/flooding/flood-recovery/6-ways-to-flood-proof/');
+                                'https://www.semswa.org/6-ways-to-flood-proof'); // fixed broken link
                           },
                         children: <TextSpan>[
                           TextSpan(

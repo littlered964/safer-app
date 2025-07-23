@@ -11,14 +11,14 @@ class ChangeTheme extends ThemeEvent {
   final DarkOption darkOption;
 
   ChangeTheme({
-    this.theme,
-    this.font,
-    this.darkOption,
+    required this.theme,
+    required this.font,
+    required this.darkOption,
   });
 }
 
 class ChangeDarkOption extends ThemeEvent {
   final DarkOption darkOption;
 
-  ChangeDarkOption({this.darkOption});
+  ChangeDarkOption({required this.darkOption});
 }

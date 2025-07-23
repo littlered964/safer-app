@@ -9,14 +9,14 @@ class ProductDetailTabPageModel {
     this.tab,
   );
 
-  static List<TabModel> _setTab(tab) {
+  static List<TabModel> _setTab(dynamic tab) {
     if (tab != null) {
-      final Iterable refactorTab = tab ?? [];
+      final Iterable refactorTab = tab;
       return refactorTab.map((item) {
         return TabModel.fromJson(item);
       }).toList();
     }
-    return null;
+    return []; // return empty list instead of null
   }
 
   factory ProductDetailTabPageModel.fromJson(Map<String, dynamic> json) {

@@ -7,7 +7,7 @@ class UtilColor {
       hexColor = "FF" + hexColor;
     }
     if (int.tryParse(hexColor, radix: 16) != null) {
-      return Color(int.tryParse(hexColor, radix: 16));
+      return Color(int.parse(hexColor, radix: 16));
     }
     return Colors.black;
   }

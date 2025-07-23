@@ -6,16 +6,14 @@ import 'package:safer/utils/utils.dart';
 import 'package:safer/widgets/widget.dart';
 
 class FontSetting extends StatefulWidget {
-  FontSetting({Key key}) : super(key: key);
+  const FontSetting({Key? key}) : super(key: key);
 
   @override
-  _FontSettingState createState() {
-    return _FontSettingState();
-  }
+  _FontSettingState createState() => _FontSettingState();
 }
 
 class _FontSettingState extends State<FontSetting> {
-  ThemeBloc _themeBloc;
+  late ThemeBloc _themeBloc;
   String _currentFont = AppTheme.currentFont;
 
   @override
@@ -26,7 +24,14 @@ class _FontSettingState extends State<FontSetting> {
 
   // On change Font
   void _onChange() async {
-    _themeBloc.add(ChangeTheme(font: _currentFont));
+    final currentTheme = AppTheme.currentTheme;
+    final currentDarkOption = AppTheme.darkThemeOption;
+
+    _themeBloc.add(ChangeTheme(
+      theme: currentTheme,
+      font: _currentFont,
+      darkOption: currentDarkOption,
+    ));
   }
 
   @override
@@ -34,24 +39,24 @@ class _FontSettingState extends State<FontSetting> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: Text(
-          Translate.of(context).translate('font'),
-        ),
+        title: Text(Translate.of(context).translate('font')),
       ),
       body: SafeArea(
         child: Column(
           children: <Widget>[
             Expanded(
               child: ListView.builder(
-                padding: EdgeInsets.only(left: 20, right: 20, top: 10),
+                padding: const EdgeInsets.only(left: 20, right: 20, top: 10),
+                itemCount: AppTheme.fontSupport.length,
                 itemBuilder: (context, index) {
                   final item = AppTheme.fontSupport[index];
                   final trailing = item == _currentFont
-                      ? Icon(
-                          Icons.check,
-                          color: Theme.of(context).primaryColor,
-                        )
-                      : null;
+                      ? Icon(Icons.check, color: Theme.of(context).primaryColor)
+                      : const SizedBox.shrink();
+
+                  final baseStyle = Theme.of(context).textTheme.titleMedium ??
+                      const TextStyle(fontSize: 16);
+
                   return AppListTitle(
                     title: item,
                     trailing: trailing,
@@ -60,22 +65,13 @@ class _FontSettingState extends State<FontSetting> {
                         _currentFont = item;
                       });
                     },
-                    textStyle: Theme.of(context)
-                        .textTheme
-                        .subtitle1
-                        .copyWith(fontFamily: item),
+                    textStyle: baseStyle.copyWith(fontFamily: item),
                   );
                 },
-                itemCount: AppTheme.fontSupport.length,
               ),
             ),
             Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 15,
-                bottom: 15,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
               child: BlocBuilder<ThemeBloc, ThemeState>(
                 builder: (context, theme) {
                   return AppButton(

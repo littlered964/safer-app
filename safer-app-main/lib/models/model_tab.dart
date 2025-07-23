@@ -18,15 +18,16 @@ class TabModel {
     this.list,
   );
 
-  static List<ProductModel> _setList(list) {
+  static List<ProductModel> _setList(dynamic list) {
     if (list != null) {
       final Iterable refactorList = list;
       return refactorList.map((item) {
         return ProductModel.fromJson(item);
       }).toList();
     }
-    return null;
+    return <ProductModel>[];
   }
+
 
   factory TabModel.fromJson(Map<String, dynamic> json) {
     return TabModel(
