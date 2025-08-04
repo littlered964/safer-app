@@ -17,9 +17,9 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
   Future<void> _onChangeTheme(ChangeTheme event, Emitter<ThemeState> emit) async {
     emit(ThemeUpdating());
 
-    AppTheme.currentTheme = event.theme ?? AppTheme.currentTheme;
-    AppTheme.currentFont = event.font ?? AppTheme.currentFont;
-    AppTheme.darkThemeOption = event.darkOption ?? AppTheme.darkThemeOption;
+    AppTheme.currentTheme = event.theme;
+    AppTheme.currentFont = event.font;
+    AppTheme.darkThemeOption = event.darkOption;
 
     switch (AppTheme.darkThemeOption) {
       case DarkOption.dynamic:
@@ -52,17 +52,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
           font: AppTheme.currentFont,
         );
         break;
-      default:
-        AppTheme.lightTheme = CollectionTheme.getCollectionTheme(
-          theme: AppTheme.currentTheme.lightTheme,
-          font: AppTheme.currentFont,
-        );
-        AppTheme.darkTheme = CollectionTheme.getCollectionTheme(
-          theme: AppTheme.currentTheme.darkTheme,
-          font: AppTheme.currentFont,
-        );
-        break;
-    }
+      }
 
     UtilPreferences.setString(Preferences.location, AppTheme.currentLocation);
     UtilPreferences.setString(Preferences.theme, AppTheme.currentTheme.name);
@@ -78,9 +68,7 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
       case DarkOption.alwaysOff:
         UtilPreferences.setString(Preferences.darkOption, DARK_ALWAYS_OFF);
         break;
-      default:
-        break;
-    }
+      }
 
     emit(ThemeUpdated());
   }

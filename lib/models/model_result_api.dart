@@ -13,10 +13,10 @@ class ResultApiModel {
 
   factory ResultApiModel.fromJson(Map<String, dynamic> json) {
     return ResultApiModel(
-      json['success'] as bool ?? false,
-      json['message'] as String ?? 'Unknown',
-      json['data'] as Map<String, dynamic> ?? {},
-      json['code'] as int ?? 0,
+      json['success'] is bool ? json['success'] as bool : false,
+      json['message'] is String ? json['message'] as String : 'Unknown',
+      json['data'] is Map<String, dynamic> ? json['data'] as Map<String, dynamic> : {},
+      json['code'] is int ? json['code'] as int : 0,
     );
   }
 }

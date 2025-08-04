@@ -10,13 +10,35 @@ class CollectionTheme {
     switch (theme) {
       case "primaryLight":
         return ThemeData(
+          primarySwatch: MaterialColor(4293223245, {
+            50: Color(0xfffcebe9),
+            100: Color(0xfff9d8d3),
+            200: Color(0xfff2b1a6),
+            300: Color(0xffec8a79),
+            400: Color(0xffe5634d),
+            500: Color(0xffdf3c20),
+            600: Color(0xffb2301a),
+            700: Color(0xff862413),
+            800: Color(0xff59180d),
+            900: Color(0xff2d0c06)
+          }),
           fontFamily: font,
           brightness: Brightness.light,
           primaryColor: Color(0xffe5634d),
           primaryColorLight: Color(0xffFF8A65),
           primaryColorDark: Color(0xff862413),
+          colorScheme: ColorScheme.fromSwatch(
+            brightness: Brightness.light,
+          ).copyWith(
+            secondary: Color(0xff4A90A4),
+            surface: Color(0xfff2b1a6),
+            error: Color(0xffd32f2f),
+          ),
           canvasColor: Color(0xfffafafa),
           scaffoldBackgroundColor: Color(0xfffafafa),
+          bottomAppBarTheme: BottomAppBarTheme(
+            color: Color(0xffffffff),
+          ),
           cardColor: Color(0xffffffff),
           dividerColor: Color(0x1f000000),
           highlightColor: Color(0x66bcbcbc),
@@ -24,6 +46,12 @@ class CollectionTheme {
           unselectedWidgetColor: Color(0x8a000000),
           disabledColor: Color(0x61000000),
           secondaryHeaderColor: Color(0xfffcebe9),
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Color(0xff4A90A4),
+            cursorColor: Color(0xff4285f4),
+            selectionHandleColor: Color(0xff4A90A4),
+          ),
+          dialogBackgroundColor: Color(0xffffffff),
           indicatorColor: Color(0xff4A90A4),
           hintColor: Color(0x8a000000),
           buttonTheme: ButtonThemeData(
@@ -98,51 +126,39 @@ class CollectionTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-          ), textSelectionTheme: TextSelectionThemeData(cursorColor: Color(0xff4285f4), selectionColor: Color(0xff4A90A4), selectionHandleColor: Color(0xff4A90A4),), checkboxTheme: CheckboxThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- ), radioTheme: RadioThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- ), switchTheme: SwitchThemeData(
- thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- ), bottomAppBarTheme: BottomAppBarTheme(color: Color(0xffffffff)), colorScheme: ColorScheme.fromSwatch(primarySwatch: MaterialColor(4293223245, {
-            50: Color(0xfffcebe9),
-            100: Color(0xfff9d8d3),
-            200: Color(0xfff2b1a6),
-            300: Color(0xffec8a79),
-            400: Color(0xffe5634d),
-            500: Color(0xffdf3c20),
-            600: Color(0xffb2301a),
-            700: Color(0xff862413),
-            800: Color(0xff59180d),
-            900: Color(0xff2d0c06)
-          })).copyWith(secondary: Color(0xff4A90A4)).copyWith(surface: Color(0xfff2b1a6)).copyWith(error: Color(0xffd32f2f)),
+          ),
         );
       case "primaryDark":
         return ThemeData(
+          primarySwatch: MaterialColor(4280361249, {
+            50: Color(0xfff2f2f2),
+            100: Color(0xffe6e6e6),
+            200: Color(0xffcccccc),
+            300: Color(0xffb3b3b3),
+            400: Color(0xff999999),
+            500: Color(0xff808080),
+            600: Color(0xff666666),
+            700: Color(0xff4d4d4d),
+            800: Color(0xff333333),
+            900: Color(0xff191919)
+          }),
           fontFamily: font,
           brightness: Brightness.dark,
           primaryColor: Color(0xffe5634d),
           primaryColorLight: Color(0xffFF8A65),
           primaryColorDark: Color(0xff000000),
+          colorScheme: ColorScheme.fromSwatch(
+            brightness: Brightness.dark,
+          ).copyWith(
+            secondary: Color(0xff4A90A4),
+            surface: Color(0xff616161),
+            error: Color(0xffd32f2f),
+          ),
           canvasColor: Colors.grey[900],
           scaffoldBackgroundColor: Color(0xff303030),
+          bottomAppBarTheme: BottomAppBarTheme(
+            color: Color(0xff424242),
+          ),
           cardColor: Color(0xff424242),
           dividerColor: Color(0x1fffffff),
           highlightColor: Color(0x40cccccc),
@@ -150,10 +166,17 @@ class CollectionTheme {
           unselectedWidgetColor: Color(0xb3ffffff),
           disabledColor: Color(0x62ffffff),
           secondaryHeaderColor: Color(0xff616161),
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Color(0xff4A90A4),
+            cursorColor: Color(0xff4285f4),
+            selectionHandleColor: Color(0xff4A90A4),
+          ),
+          dialogBackgroundColor: Color(0xff424242),
           indicatorColor: Color(0xff4A90A4),
           hintColor: Color(0x80ffffff),
           appBarTheme: AppBarTheme(
-            color: Colors.grey[900], systemOverlayStyle: SystemUiOverlayStyle.light,
+            backgroundColor: Colors.grey[900],
+            systemOverlayStyle: SystemUiOverlayStyle.light,
           ),
           buttonTheme: ButtonThemeData(
             textTheme: ButtonTextTheme.accent,
@@ -237,51 +260,39 @@ class CollectionTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-          ), textSelectionTheme: TextSelectionThemeData(cursorColor: Color(0xff4285f4), selectionColor: Color(0xff4A90A4), selectionHandleColor: Color(0xff4A90A4),), checkboxTheme: CheckboxThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- ), radioTheme: RadioThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- ), switchTheme: SwitchThemeData(
- thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- ), bottomAppBarTheme: BottomAppBarTheme(color: Color(0xff424242)), colorScheme: ColorScheme.fromSwatch(primarySwatch: MaterialColor(4280361249, {
-            50: Color(0xfff2f2f2),
-            100: Color(0xffe6e6e6),
-            200: Color(0xffcccccc),
-            300: Color(0xffb3b3b3),
-            400: Color(0xff999999),
-            500: Color(0xff808080),
-            600: Color(0xff666666),
-            700: Color(0xff4d4d4d),
-            800: Color(0xff333333),
-            900: Color(0xff191919)
-          })).copyWith(secondary: Color(0xff4A90A4)).copyWith(surface: Color(0xff616161)).copyWith(error: Color(0xffd32f2f)),
+          ),
         );
       case "brownLight":
         return ThemeData(
+          primarySwatch: MaterialColor(4288776319, {
+            50: Color(0xfff4f1f0),
+            100: Color(0xffe9e4e2),
+            200: Color(0xffd4c8c4),
+            300: Color(0xffbeada7),
+            400: Color(0xffa99289),
+            500: Color(0xff93766c),
+            600: Color(0xff765f56),
+            700: Color(0xff584741),
+            800: Color(0xff3b2f2b),
+            900: Color(0xff1d1816)
+          }),
           fontFamily: font,
           brightness: Brightness.light,
           primaryColor: Color(0xffa1887f),
           primaryColorLight: Color(0xffe9e4e2),
           primaryColorDark: Color(0xff584741),
+          colorScheme: ColorScheme.fromSwatch(
+            brightness: Brightness.light,
+          ).copyWith(
+            secondary: Color(0xff93766c),
+            surface: Color(0xffd4c8c4),
+            error: Color(0xffd32f2f),
+          ),
           canvasColor: Color(0xfffafafa),
           scaffoldBackgroundColor: Color(0xfffafafa),
+          bottomAppBarTheme: BottomAppBarTheme(
+            color: Color(0xffffffff),
+          ),
           cardColor: Color(0xffffffff),
           dividerColor: Color(0x1f000000),
           highlightColor: Color(0x66bcbcbc),
@@ -289,6 +300,12 @@ class CollectionTheme {
           unselectedWidgetColor: Color(0x8a000000),
           disabledColor: Color(0x61000000),
           secondaryHeaderColor: Color(0xfff4f1f0),
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Color(0xffd4c8c4),
+            cursorColor: Color(0xff4285f4),
+            selectionHandleColor: Color(0xffbeada7),
+          ),
+          dialogBackgroundColor: Color(0xffffffff),
           indicatorColor: Color(0xff93766c),
           hintColor: Color(0x8a000000),
           buttonTheme: ButtonThemeData(
@@ -363,51 +380,39 @@ class CollectionTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-          ), textSelectionTheme: TextSelectionThemeData(cursorColor: Color(0xff4285f4), selectionColor: Color(0xffd4c8c4), selectionHandleColor: Color(0xffbeada7),), checkboxTheme: CheckboxThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff765f56); }
- return null;
- }),
- ), radioTheme: RadioThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff765f56); }
- return null;
- }),
- ), switchTheme: SwitchThemeData(
- thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff765f56); }
- return null;
- }),
- trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff765f56); }
- return null;
- }),
- ), bottomAppBarTheme: BottomAppBarTheme(color: Color(0xffffffff)), colorScheme: ColorScheme.fromSwatch(primarySwatch: MaterialColor(4288776319, {
-            50: Color(0xfff4f1f0),
-            100: Color(0xffe9e4e2),
-            200: Color(0xffd4c8c4),
-            300: Color(0xffbeada7),
-            400: Color(0xffa99289),
-            500: Color(0xff93766c),
-            600: Color(0xff765f56),
-            700: Color(0xff584741),
-            800: Color(0xff3b2f2b),
-            900: Color(0xff1d1816)
-          })).copyWith(secondary: Color(0xff93766c)).copyWith(surface: Color(0xffd4c8c4)).copyWith(error: Color(0xffd32f2f)),
+          ),
         );
       case "brownDark":
         return ThemeData(
+          primarySwatch: MaterialColor(4280361249, {
+            50: Color(0xfff2f2f2),
+            100: Color(0xffe6e6e6),
+            200: Color(0xffcccccc),
+            300: Color(0xffb3b3b3),
+            400: Color(0xff999999),
+            500: Color(0xff808080),
+            600: Color(0xff666666),
+            700: Color(0xff4d4d4d),
+            800: Color(0xff333333),
+            900: Color(0xff191919)
+          }),
           fontFamily: font,
           brightness: Brightness.dark,
           primaryColor: Color(0xffa1887f),
           primaryColorLight: Color(0xff9e9e9e),
           primaryColorDark: Color(0xff000000),
+          colorScheme: ColorScheme.fromSwatch(
+            brightness: Brightness.dark,
+          ).copyWith(
+            secondary: Color(0xff93766c),
+            surface: Color(0xff616161),
+            error: Color(0xffd32f2f),
+          ),
           canvasColor: Colors.grey[900],
           scaffoldBackgroundColor: Color(0xff303030),
+          bottomAppBarTheme: BottomAppBarTheme(
+            color: Color(0xff424242),
+          ),
           cardColor: Color(0xff424242),
           dividerColor: Color(0x1fffffff),
           highlightColor: Color(0x40cccccc),
@@ -415,10 +420,17 @@ class CollectionTheme {
           unselectedWidgetColor: Color(0xb3ffffff),
           disabledColor: Color(0x62ffffff),
           secondaryHeaderColor: Color(0xff616161),
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Color(0xffd4c8c4),
+            cursorColor: Color(0xff4285f4),
+            selectionHandleColor: Color(0xffbeada7),
+          ),
+          dialogBackgroundColor: Color(0xff424242),
           indicatorColor: Color(0xff93766c),
           hintColor: Color(0x80ffffff),
           appBarTheme: AppBarTheme(
-            color: Colors.grey[900], systemOverlayStyle: SystemUiOverlayStyle.light,
+            backgroundColor: Colors.grey[900],
+            systemOverlayStyle: SystemUiOverlayStyle.light,
           ),
           buttonTheme: ButtonThemeData(
             textTheme: ButtonTextTheme.accent,
@@ -502,51 +514,39 @@ class CollectionTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-          ), textSelectionTheme: TextSelectionThemeData(cursorColor: Color(0xff4285f4), selectionColor: Color(0xffd4c8c4), selectionHandleColor: Color(0xffbeada7),), checkboxTheme: CheckboxThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff765f56); }
- return null;
- }),
- ), radioTheme: RadioThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff765f56); }
- return null;
- }),
- ), switchTheme: SwitchThemeData(
- thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff765f56); }
- return null;
- }),
- trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff765f56); }
- return null;
- }),
- ), bottomAppBarTheme: BottomAppBarTheme(color: Color(0xff424242)), colorScheme: ColorScheme.fromSwatch(primarySwatch: MaterialColor(4280361249, {
-            50: Color(0xfff2f2f2),
-            100: Color(0xffe6e6e6),
-            200: Color(0xffcccccc),
-            300: Color(0xffb3b3b3),
-            400: Color(0xff999999),
-            500: Color(0xff808080),
-            600: Color(0xff666666),
-            700: Color(0xff4d4d4d),
-            800: Color(0xff333333),
-            900: Color(0xff191919)
-          })).copyWith(secondary: Color(0xff93766c)).copyWith(surface: Color(0xff616161)).copyWith(error: Color(0xffd32f2f)),
+          ),
         );
       case "pinkLight":
         return ThemeData(
+          primarySwatch: MaterialColor(4292912833, {
+            50: Color(0xfff8ecf2),
+            100: Color(0xfff2d9e5),
+            200: Color(0xffe5b3ca),
+            300: Color(0xffd78eb0),
+            400: Color(0xffca6896),
+            500: Color(0xffbd427b),
+            600: Color(0xff973563),
+            700: Color(0xff71284a),
+            800: Color(0xff4c1a31),
+            900: Color(0xff260d19)
+          }),
           fontFamily: font,
           brightness: Brightness.light,
           primaryColor: Color(0xffe0a6c1),
           primaryColorLight: Color(0xfff2d9e5),
           primaryColorDark: Color(0xff71284a),
+          colorScheme: ColorScheme.fromSwatch(
+            brightness: Brightness.light,
+          ).copyWith(
+            secondary: Color(0xffbd427b),
+            surface: Color(0xffe5b3ca),
+            error: Color(0xffd32f2f),
+          ),
           canvasColor: Color(0xfffafafa),
           scaffoldBackgroundColor: Color(0xfffafafa),
+          bottomAppBarTheme: BottomAppBarTheme(
+            color: Color(0xffffffff),
+          ),
           cardColor: Color(0xffffffff),
           dividerColor: Color(0x1f000000),
           highlightColor: Color(0x66bcbcbc),
@@ -554,6 +554,12 @@ class CollectionTheme {
           unselectedWidgetColor: Color(0x8a000000),
           disabledColor: Color(0x61000000),
           secondaryHeaderColor: Color(0xfff8ecf2),
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Color(0xffe5b3ca),
+            cursorColor: Color(0xff4285f4),
+            selectionHandleColor: Color(0xffd78eb0),
+          ),
+          dialogBackgroundColor: Color(0xffffffff),
           indicatorColor: Color(0xffbd427b),
           hintColor: Color(0x8a000000),
           buttonTheme: ButtonThemeData(
@@ -628,51 +634,39 @@ class CollectionTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-          ), textSelectionTheme: TextSelectionThemeData(cursorColor: Color(0xff4285f4), selectionColor: Color(0xffe5b3ca), selectionHandleColor: Color(0xffd78eb0),), checkboxTheme: CheckboxThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff973563); }
- return null;
- }),
- ), radioTheme: RadioThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff973563); }
- return null;
- }),
- ), switchTheme: SwitchThemeData(
- thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff973563); }
- return null;
- }),
- trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff973563); }
- return null;
- }),
- ), bottomAppBarTheme: BottomAppBarTheme(color: Color(0xffffffff)), colorScheme: ColorScheme.fromSwatch(primarySwatch: MaterialColor(4292912833, {
-            50: Color(0xfff8ecf2),
-            100: Color(0xfff2d9e5),
-            200: Color(0xffe5b3ca),
-            300: Color(0xffd78eb0),
-            400: Color(0xffca6896),
-            500: Color(0xffbd427b),
-            600: Color(0xff973563),
-            700: Color(0xff71284a),
-            800: Color(0xff4c1a31),
-            900: Color(0xff260d19)
-          })).copyWith(secondary: Color(0xffbd427b)).copyWith(surface: Color(0xffe5b3ca)).copyWith(error: Color(0xffd32f2f)),
+          ),
         );
       case "pinkDark":
         return ThemeData(
+          primarySwatch: MaterialColor(4280361249, {
+            50: Color(0xfff2f2f2),
+            100: Color(0xffe6e6e6),
+            200: Color(0xffcccccc),
+            300: Color(0xffb3b3b3),
+            400: Color(0xff999999),
+            500: Color(0xff808080),
+            600: Color(0xff666666),
+            700: Color(0xff4d4d4d),
+            800: Color(0xff333333),
+            900: Color(0xff191919)
+          }),
           fontFamily: font,
           brightness: Brightness.dark,
           primaryColor: Color(0xffe0a6c1),
           primaryColorLight: Color(0xff9e9e9e),
           primaryColorDark: Color(0xff000000),
+          colorScheme: ColorScheme.fromSwatch(
+            brightness: Brightness.dark,
+          ).copyWith(
+            secondary: Color(0xffbd427b),
+            surface: Color(0xff616161),
+            error: Color(0xffd32f2f),
+          ),
           canvasColor: Colors.grey[900],
           scaffoldBackgroundColor: Color(0xff303030),
+          bottomAppBarTheme: BottomAppBarTheme(
+            color: Color(0xff424242),
+          ),
           cardColor: Color(0xff424242),
           dividerColor: Color(0x1fffffff),
           highlightColor: Color(0x40cccccc),
@@ -680,10 +674,17 @@ class CollectionTheme {
           unselectedWidgetColor: Color(0xb3ffffff),
           disabledColor: Color(0x62ffffff),
           secondaryHeaderColor: Color(0xff616161),
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Color(0xfff2b1a6),
+            cursorColor: Color(0xff4285f4),
+            selectionHandleColor: Color(0xffec8a79),
+          ),
+          dialogBackgroundColor: Color(0xff424242),
           indicatorColor: Color(0xffbd427b),
           hintColor: Color(0x80ffffff),
           appBarTheme: AppBarTheme(
-            color: Colors.grey[900], systemOverlayStyle: SystemUiOverlayStyle.light,
+            backgroundColor: Colors.grey[900],
+            systemOverlayStyle: SystemUiOverlayStyle.light,
           ),
           buttonTheme: ButtonThemeData(
             textTheme: ButtonTextTheme.accent,
@@ -767,51 +768,39 @@ class CollectionTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-          ), textSelectionTheme: TextSelectionThemeData(cursorColor: Color(0xff4285f4), selectionColor: Color(0xfff2b1a6), selectionHandleColor: Color(0xffec8a79),), checkboxTheme: CheckboxThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xffbd427b); }
- return null;
- }),
- ), radioTheme: RadioThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xffbd427b); }
- return null;
- }),
- ), switchTheme: SwitchThemeData(
- thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xffbd427b); }
- return null;
- }),
- trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xffbd427b); }
- return null;
- }),
- ), bottomAppBarTheme: BottomAppBarTheme(color: Color(0xff424242)), colorScheme: ColorScheme.fromSwatch(primarySwatch: MaterialColor(4280361249, {
-            50: Color(0xfff2f2f2),
-            100: Color(0xffe6e6e6),
-            200: Color(0xffcccccc),
-            300: Color(0xffb3b3b3),
-            400: Color(0xff999999),
-            500: Color(0xff808080),
-            600: Color(0xff666666),
-            700: Color(0xff4d4d4d),
-            800: Color(0xff333333),
-            900: Color(0xff191919)
-          })).copyWith(secondary: Color(0xffbd427b)).copyWith(surface: Color(0xff616161)).copyWith(error: Color(0xffd32f2f)),
+          ),
         );
       case "pastelOrangeLight":
         return ThemeData(
+          primarySwatch: MaterialColor(4294359873, {
+            50: Color(0xfffef6e7),
+            100: Color(0xfffdeece),
+            200: Color(0xfffadc9e),
+            300: Color(0xfff8cb6d),
+            400: Color(0xfff6b93c),
+            500: Color(0xfff3a80c),
+            600: Color(0xffc38609),
+            700: Color(0xff926507),
+            800: Color(0xff614305),
+            900: Color(0xff312202)
+          }),
           fontFamily: font,
           brightness: Brightness.light,
           primaryColor: Color(0xfff6bb41),
           primaryColorLight: Color(0xfffdeece),
           primaryColorDark: Color(0xff926507),
+          colorScheme: ColorScheme.fromSwatch(
+            brightness: Brightness.light,
+          ).copyWith(
+            secondary: Color(0xfff3a80c),
+            surface: Color(0xfffadc9e),
+            error: Color(0xffd32f2f),
+          ),
           canvasColor: Color(0xfffafafa),
           scaffoldBackgroundColor: Color(0xfffafafa),
+          bottomAppBarTheme: BottomAppBarTheme(
+            color: Color(0xffffffff),
+          ),
           cardColor: Color(0xffffffff),
           dividerColor: Color(0x1f000000),
           highlightColor: Color(0x66bcbcbc),
@@ -819,6 +808,12 @@ class CollectionTheme {
           unselectedWidgetColor: Color(0x8a000000),
           disabledColor: Color(0x61000000),
           secondaryHeaderColor: Color(0xfffef6e7),
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Color(0xfffadc9e),
+            cursorColor: Color(0xff4285f4),
+            selectionHandleColor: Color(0xfff8cb6d),
+          ),
+          dialogBackgroundColor: Color(0xffffffff),
           indicatorColor: Color(0xfff3a80c),
           hintColor: Color(0x8a000000),
           buttonTheme: ButtonThemeData(
@@ -893,51 +888,39 @@ class CollectionTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-          ), textSelectionTheme: TextSelectionThemeData(cursorColor: Color(0xff4285f4), selectionColor: Color(0xfffadc9e), selectionHandleColor: Color(0xfff8cb6d),), checkboxTheme: CheckboxThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xffc38609); }
- return null;
- }),
- ), radioTheme: RadioThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xffc38609); }
- return null;
- }),
- ), switchTheme: SwitchThemeData(
- thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xffc38609); }
- return null;
- }),
- trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xffc38609); }
- return null;
- }),
- ), bottomAppBarTheme: BottomAppBarTheme(color: Color(0xffffffff)), colorScheme: ColorScheme.fromSwatch(primarySwatch: MaterialColor(4294359873, {
-            50: Color(0xfffef6e7),
-            100: Color(0xfffdeece),
-            200: Color(0xfffadc9e),
-            300: Color(0xfff8cb6d),
-            400: Color(0xfff6b93c),
-            500: Color(0xfff3a80c),
-            600: Color(0xffc38609),
-            700: Color(0xff926507),
-            800: Color(0xff614305),
-            900: Color(0xff312202)
-          })).copyWith(secondary: Color(0xfff3a80c)).copyWith(surface: Color(0xfffadc9e)).copyWith(error: Color(0xffd32f2f)),
+          ),
         );
       case "pastelOrangeDark":
         return ThemeData(
+          primarySwatch: MaterialColor(4280361249, {
+            50: Color(0xfff2f2f2),
+            100: Color(0xffe6e6e6),
+            200: Color(0xffcccccc),
+            300: Color(0xffb3b3b3),
+            400: Color(0xff999999),
+            500: Color(0xff808080),
+            600: Color(0xff666666),
+            700: Color(0xff4d4d4d),
+            800: Color(0xff333333),
+            900: Color(0xff191919)
+          }),
           fontFamily: font,
           brightness: Brightness.dark,
           primaryColor: Color(0xfff6bb41),
           primaryColorLight: Color(0xff9e9e9e),
           primaryColorDark: Color(0xff000000),
+          colorScheme: ColorScheme.fromSwatch(
+            brightness: Brightness.dark,
+          ).copyWith(
+            secondary: Color(0xfff3a80c),
+            surface: Color(0xff616161),
+            error: Color(0xffd32f2f),
+          ),
           canvasColor: Colors.grey[900],
           scaffoldBackgroundColor: Color(0xff303030),
+          bottomAppBarTheme: BottomAppBarTheme(
+            color: Color(0xff303030),
+          ),
           cardColor: Color(0xff424242),
           dividerColor: Color(0x1fffffff),
           highlightColor: Color(0x40cccccc),
@@ -945,10 +928,17 @@ class CollectionTheme {
           unselectedWidgetColor: Color(0xb3ffffff),
           disabledColor: Color(0x62ffffff),
           secondaryHeaderColor: Color(0xff616161),
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Color(0xfff3a80c),
+            cursorColor: Color(0xff4285f4),
+            selectionHandleColor: Color(0xfff3a80c),
+          ),
+          dialogBackgroundColor: Color(0xff424242),
           indicatorColor: Color(0xfff3a80c),
           hintColor: Color(0x80ffffff),
           appBarTheme: AppBarTheme(
-            color: Colors.grey[900], systemOverlayStyle: SystemUiOverlayStyle.light,
+            backgroundColor: Colors.grey[900],
+            systemOverlayStyle: SystemUiOverlayStyle.light,
           ),
           buttonTheme: ButtonThemeData(
             textTheme: ButtonTextTheme.accent,
@@ -1031,51 +1021,39 @@ class CollectionTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-          ), textSelectionTheme: TextSelectionThemeData(cursorColor: Color(0xff4285f4), selectionColor: Color(0xfff3a80c), selectionHandleColor: Color(0xfff3a80c),), checkboxTheme: CheckboxThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xfff3a80c); }
- return null;
- }),
- ), radioTheme: RadioThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xfff3a80c); }
- return null;
- }),
- ), switchTheme: SwitchThemeData(
- thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xfff3a80c); }
- return null;
- }),
- trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xfff3a80c); }
- return null;
- }),
- ), bottomAppBarTheme: BottomAppBarTheme(color: Color(0xff424242)), colorScheme: ColorScheme.fromSwatch(primarySwatch: MaterialColor(4280361249, {
-            50: Color(0xfff2f2f2),
-            100: Color(0xffe6e6e6),
-            200: Color(0xffcccccc),
-            300: Color(0xffb3b3b3),
-            400: Color(0xff999999),
-            500: Color(0xff808080),
-            600: Color(0xff666666),
-            700: Color(0xff4d4d4d),
-            800: Color(0xff333333),
-            900: Color(0xff191919)
-          })).copyWith(secondary: Color(0xfff3a80c)).copyWith(surface: Color(0xff616161)).copyWith(error: Color(0xffd32f2f)),
+          ),
         );
       case "greenLight":
         return ThemeData(
+          primarySwatch: MaterialColor(4287870896, {
+            50: Color(0xfff0f5f4),
+            100: Color(0xffe0ebe9),
+            200: Color(0xffc2d6d2),
+            300: Color(0xffa3c2bc),
+            400: Color(0xff85ada5),
+            500: Color(0xff66998f),
+            600: Color(0xff527a72),
+            700: Color(0xff3d5c56),
+            800: Color(0xff293d39),
+            900: Color(0xff141f1d)
+          }),
           fontFamily: font,
           brightness: Brightness.light,
           primaryColor: Color(0xff93b7b0),
           primaryColorLight: Color(0xffe0ebe9),
           primaryColorDark: Color(0xff3d5c56),
+          colorScheme: ColorScheme.fromSwatch(
+            brightness: Brightness.light,
+          ).copyWith(
+            secondary: Color(0xff66998f),
+            surface: Color(0xffc2d6d2),
+            error: Color(0xffd32f2f),
+          ),
           canvasColor: Color(0xfffafafa),
           scaffoldBackgroundColor: Color(0xfffafafa),
+          bottomAppBarTheme: BottomAppBarTheme(
+            color: Color(0xffffffff),
+          ),
           cardColor: Color(0xffffffff),
           dividerColor: Color(0x1f000000),
           highlightColor: Color(0x66bcbcbc),
@@ -1083,6 +1061,12 @@ class CollectionTheme {
           unselectedWidgetColor: Color(0x8a000000),
           disabledColor: Color(0x61000000),
           secondaryHeaderColor: Color(0xfff0f5f4),
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Color(0xffc2d6d2),
+            cursorColor: Color(0xff4285f4),
+            selectionHandleColor: Color(0xffa3c2bc),
+          ),
+          dialogBackgroundColor: Color(0xffffffff),
           indicatorColor: Color(0xff66998f),
           hintColor: Color(0x8a000000),
           buttonTheme: ButtonThemeData(
@@ -1157,51 +1141,39 @@ class CollectionTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-          ), textSelectionTheme: TextSelectionThemeData(cursorColor: Color(0xff4285f4), selectionColor: Color(0xffc2d6d2), selectionHandleColor: Color(0xffa3c2bc),), checkboxTheme: CheckboxThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff527a72); }
- return null;
- }),
- ), radioTheme: RadioThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff527a72); }
- return null;
- }),
- ), switchTheme: SwitchThemeData(
- thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff527a72); }
- return null;
- }),
- trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff527a72); }
- return null;
- }),
- ), bottomAppBarTheme: BottomAppBarTheme(color: Color(0xffffffff)), colorScheme: ColorScheme.fromSwatch(primarySwatch: MaterialColor(4287870896, {
-            50: Color(0xfff0f5f4),
-            100: Color(0xffe0ebe9),
-            200: Color(0xffc2d6d2),
-            300: Color(0xffa3c2bc),
-            400: Color(0xff85ada5),
-            500: Color(0xff66998f),
-            600: Color(0xff527a72),
-            700: Color(0xff3d5c56),
-            800: Color(0xff293d39),
-            900: Color(0xff141f1d)
-          })).copyWith(secondary: Color(0xff66998f)).copyWith(surface: Color(0xffc2d6d2)).copyWith(error: Color(0xffd32f2f)),
+          ),
         );
       case "greenDark":
         return ThemeData(
+          primarySwatch: MaterialColor(4280361249, {
+            50: Color(0xfff2f2f2),
+            100: Color(0xffe6e6e6),
+            200: Color(0xffcccccc),
+            300: Color(0xffb3b3b3),
+            400: Color(0xff999999),
+            500: Color(0xff808080),
+            600: Color(0xff666666),
+            700: Color(0xff4d4d4d),
+            800: Color(0xff333333),
+            900: Color(0xff191919)
+          }),
           fontFamily: font,
           brightness: Brightness.dark,
           primaryColor: Color(0xff93b7b0),
           primaryColorLight: Color(0xff9e9e9e),
           primaryColorDark: Color(0xff000000),
+          colorScheme: ColorScheme.fromSwatch(
+            brightness: Brightness.dark,
+          ).copyWith(
+            secondary: Color(0xff3d5c56),
+            surface: Color(0xff616161),
+            error: Color(0xffd32f2f),
+          ),
           canvasColor: Colors.grey[900],
           scaffoldBackgroundColor: Color(0xff303030),
+          bottomAppBarTheme: BottomAppBarTheme(
+            color: Color(0xff424242),
+          ),
           cardColor: Color(0xff424242),
           dividerColor: Color(0x1fffffff),
           highlightColor: Color(0x40cccccc),
@@ -1209,10 +1181,17 @@ class CollectionTheme {
           unselectedWidgetColor: Color(0xb3ffffff),
           disabledColor: Color(0x62ffffff),
           secondaryHeaderColor: Color(0xff616161),
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Color(0xff3d5c56),
+            cursorColor: Color(0xff4285f4),
+            selectionHandleColor: Color(0xff3d5c56),
+          ),
+          dialogBackgroundColor: Color(0xff424242),
           indicatorColor: Color(0xff3d5c56),
           hintColor: Color(0x80ffffff),
           appBarTheme: AppBarTheme(
-            color: Colors.grey[900], systemOverlayStyle: SystemUiOverlayStyle.light,
+            backgroundColor: Colors.grey[900],
+            systemOverlayStyle: SystemUiOverlayStyle.light,
           ),
           buttonTheme: ButtonThemeData(
             textTheme: ButtonTextTheme.accent,
@@ -1296,52 +1275,40 @@ class CollectionTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-          ), textSelectionTheme: TextSelectionThemeData(cursorColor: Color(0xff4285f4), selectionColor: Color(0xff3d5c56), selectionHandleColor: Color(0xff3d5c56),), checkboxTheme: CheckboxThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff3d5c56); }
- return null;
- }),
- ), radioTheme: RadioThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff3d5c56); }
- return null;
- }),
- ), switchTheme: SwitchThemeData(
- thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff3d5c56); }
- return null;
- }),
- trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff3d5c56); }
- return null;
- }),
- ), bottomAppBarTheme: BottomAppBarTheme(color: Color(0xff424242)), colorScheme: ColorScheme.fromSwatch(primarySwatch: MaterialColor(4280361249, {
-            50: Color(0xfff2f2f2),
-            100: Color(0xffe6e6e6),
-            200: Color(0xffcccccc),
-            300: Color(0xffb3b3b3),
-            400: Color(0xff999999),
-            500: Color(0xff808080),
-            600: Color(0xff666666),
-            700: Color(0xff4d4d4d),
-            800: Color(0xff333333),
-            900: Color(0xff191919)
-          })).copyWith(secondary: Color(0xff3d5c56)).copyWith(surface: Color(0xff616161)).copyWith(error: Color(0xffd32f2f)),
+          ),
         );
 
       default:
         return ThemeData(
+          primarySwatch: MaterialColor(4293223245, {
+            50: Color(0xfffcebe9),
+            100: Color(0xfff9d8d3),
+            200: Color(0xfff2b1a6),
+            300: Color(0xffec8a79),
+            400: Color(0xffe5634d),
+            500: Color(0xffdf3c20),
+            600: Color(0xffb2301a),
+            700: Color(0xff862413),
+            800: Color(0xff59180d),
+            900: Color(0xff2d0c06)
+          }),
           fontFamily: font,
           brightness: Brightness.light,
           primaryColor: Color(0xffe5634d),
           primaryColorLight: Color(0xffFF8A65),
           primaryColorDark: Color(0xff862413),
+          colorScheme: ColorScheme.fromSwatch(
+            brightness: Brightness.light,
+          ).copyWith(
+            secondary: Color(0xff4A90A4),
+            surface: Color(0xfff2b1a6),
+            error: Color(0xffd32f2f),
+          ),
           canvasColor: Color(0xfffafafa),
           scaffoldBackgroundColor: Color(0xfffafafa),
+          bottomAppBarTheme: BottomAppBarTheme(
+            color: Color(0xffffffff),
+          ),
           cardColor: Color(0xffffffff),
           dividerColor: Color(0x1f000000),
           highlightColor: Color(0x66bcbcbc),
@@ -1349,6 +1316,12 @@ class CollectionTheme {
           unselectedWidgetColor: Color(0x8a000000),
           disabledColor: Color(0x61000000),
           secondaryHeaderColor: Color(0xfffcebe9),
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Color(0xff4A90A4),
+            cursorColor: Color(0xff4285f4),
+            selectionHandleColor: Color(0xff4A90A4),
+          ),
+          dialogBackgroundColor: Color(0xffffffff),
           indicatorColor: Color(0xff4A90A4),
           hintColor: Color(0x8a000000),
           buttonTheme: ButtonThemeData(
@@ -1423,41 +1396,7 @@ class CollectionTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-          ), textSelectionTheme: TextSelectionThemeData(cursorColor: Color(0xff4285f4), selectionColor: Color(0xff4A90A4), selectionHandleColor: Color(0xff4A90A4),), checkboxTheme: CheckboxThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- ), radioTheme: RadioThemeData(
- fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- ), switchTheme: SwitchThemeData(
- thumbColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- trackColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
- if (states.contains(WidgetState.disabled)) { return null; }
- if (states.contains(WidgetState.selected)) { return Color(0xff4A90A4); }
- return null;
- }),
- ), bottomAppBarTheme: BottomAppBarTheme(color: Color(0xffffffff)), colorScheme: ColorScheme.fromSwatch(primarySwatch: MaterialColor(4293223245, {
-            50: Color(0xfffcebe9),
-            100: Color(0xfff9d8d3),
-            200: Color(0xfff2b1a6),
-            300: Color(0xffec8a79),
-            400: Color(0xffe5634d),
-            500: Color(0xffdf3c20),
-            600: Color(0xffb2301a),
-            700: Color(0xff862413),
-            800: Color(0xff59180d),
-            900: Color(0xff2d0c06)
-          })).copyWith(secondary: Color(0xff4A90A4)).copyWith(surface: Color(0xfff2b1a6)).copyWith(error: Color(0xffd32f2f)),
+          ),
         );
     }
   }

@@ -36,7 +36,15 @@ class ApplicationBloc extends Bloc<ApplicationEvent, ApplicationState> {
     String? font;
     DarkOption? darkOption;
 
-    languageBloc.add(ChangeLanguage(Locale(oldLanguage)));
+    final String? savedLanguage = UtilPreferences.getString(Preferences.language);
+
+    languageBloc.add(
+      ChangeLanguage(
+        (savedLanguage?.isNotEmpty ?? false)
+            ? Locale(savedLanguage!)
+            : AppLanguage.defaultLanguage,
+      ),
+    );
 
     final fontAvailable = AppTheme.fontSupport.where((item) => item == oldFont).toList();
     final themeAvailable = AppTheme.themeSupport.where((item) => item.name == oldTheme).toList();
@@ -58,7 +66,7 @@ class ApplicationBloc extends Bloc<ApplicationEvent, ApplicationState> {
     themeBloc.add(ChangeTheme(
       theme: theme ?? AppTheme.currentTheme,
       font: font ?? AppTheme.currentFont,
-      darkOption: darkOption ?? AppTheme.darkThemeOption,
+      darkOption: darkOption,
     ));
 
     final hasReview = UtilPreferences.containsKey(
