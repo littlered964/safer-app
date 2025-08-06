@@ -64,6 +64,9 @@ class _HomeState extends State<Home> {
       case 'Stay in Touch':
         Navigator.pushNamed(context, Routes.stayInTouch, arguments: item.title);
         break;
+      case 'Power Outage':
+        Navigator.pushNamed(context, Routes.powerOutage, arguments: item.title);
+        break;
       default:
         break;
     }

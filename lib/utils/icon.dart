@@ -56,7 +56,9 @@ class UtilIcon {
         return Icons.event;
       case 'description':
         return Icons.description;
-
+      case 'flashlight_on_outlined':
+        return Icons.flashlight_on_outlined;
+        
       default:
         return Icons.help;
     }

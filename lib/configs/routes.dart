@@ -37,6 +37,7 @@ class Routes {
   static const String supplies = "/supplies";
   static const String evacuation = "/evacuation";
   static const String stayInTouch = "/stayInTouch";
+  static const String powerOutage = "/powerOutage";
 
   static const String termsOfUse = "/termsOfUse";
 
@@ -100,6 +101,12 @@ class Routes {
         final category = settings.arguments as String?;
         return MaterialPageRoute(
           builder: (context) => StayInTouch(title: category ?? ''),
+        );
+
+      case powerOutage:
+        final category = settings.arguments as String?;
+        return MaterialPageRoute(
+          builder: (context) => PowerOutage(title: category ?? ''),
         );
 
       case changeLanguage:

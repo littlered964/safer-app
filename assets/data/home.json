@@ -71,6 +71,13 @@
         "icon": "hotel",
         "color": "#ff8a65",
         "type": "hotel"
+      },
+      {
+        "id": 9,
+        "title": "Power Outage",
+        "icon": "flashlight_on_outlined",
+        "color": "#ff9800",
+        "type": "more"
       }
     ]
   },
