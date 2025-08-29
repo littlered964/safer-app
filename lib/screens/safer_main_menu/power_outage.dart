@@ -117,6 +117,51 @@ class PowerOutage extends StatelessWidget {
     );
   }
 
+  Widget buildCtUtilitiesBlock(BuildContext context) {
+    final links = <String, String>{
+      'United Illuminating – Storm Checklist':
+          'https://www.uinet.com/safety/stormsafety/stormchecklist',
+      'United Illuminating – Outages':
+          'https://www.uinet.com/outages',
+      'Groton Utilities – Outage Info':
+          'https://grotonutilities.com/251/Outages#:~:text=There%20are%20currently%20no%20service%20outages.',
+      'SNEW (South Norwalk) – Power Outage Tips':
+          'https://www.snew.org/customer-care/power-outages/safety-tips-2/',
+    };
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'More from CT Utilities',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Raleway',
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...links.entries.map((e) => ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    e.key,
+                    style: const TextStyle(fontSize: 16, fontFamily: 'Raleway'),
+                  ),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => launchUrl(Uri.parse(e.value)),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget buildGameBlock(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
@@ -198,6 +243,8 @@ class PowerOutage extends StatelessWidget {
                 "https://www.eversource.com/content/residential/outages/storm-preparedness/after-a-storm",
           ),
           buildRestorationBlock(context),
+
+          buildCtUtilitiesBlock(context),
 
           buildGameBlock(context),
         ],
