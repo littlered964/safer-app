@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:safer/configs/routes.dart';
 
 class PowerOutage extends StatelessWidget {
   final String title;
@@ -116,6 +117,27 @@ class PowerOutage extends StatelessWidget {
     );
   }
 
+  Widget buildGameBlock(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        leading: const Icon(Icons.sports_esports),
+        title: const Text(
+          'Play the Power Outage Sorting Game',
+          style: TextStyle(fontFamily: 'Raleway'),
+        ),
+        subtitle: const Text(
+          'Sort items into “Helpful” vs “Not Helpful” to prep for outages.',
+          style: TextStyle(fontFamily: 'Raleway'),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.pushNamed(context, Routes.powerOutageGame),
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final beforeStormTips = [
@@ -176,6 +198,8 @@ class PowerOutage extends StatelessWidget {
                 "https://www.eversource.com/content/residential/outages/storm-preparedness/after-a-storm",
           ),
           buildRestorationBlock(context),
+
+          buildGameBlock(context),
         ],
       ),
     );

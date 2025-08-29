@@ -15,4 +15,6 @@ export 'safer_main_menu/supplies.dart';
 export 'safer_main_menu/evacuation.dart';
 export 'safer_main_menu/stay_in_touch.dart';
 export 'safer_main_menu/power_outage.dart';
+export 'safer_main_menu/power_outage_game.dart';
+
 

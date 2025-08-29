@@ -38,6 +38,7 @@ class Routes {
   static const String evacuation = "/evacuation";
   static const String stayInTouch = "/stayInTouch";
   static const String powerOutage = "/powerOutage";
+  static const String powerOutageGame = "/powerOutageGame";
 
   static const String termsOfUse = "/termsOfUse";
 
@@ -122,6 +123,11 @@ class Routes {
       case fontSetting:
         return MaterialPageRoute(
           builder: (context) => FontSetting(),
+        );
+
+      case powerOutageGame:
+        return MaterialPageRoute(
+          builder: (context) => const PowerOutageGame(),
         );
 
       default:
