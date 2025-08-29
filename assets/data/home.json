@@ -24,6 +24,20 @@
         "type": "shop"
       },
       {
+        "id": 9,
+        "title": "Power Outage",
+        "icon": "flashlight_on_outlined",
+        "color": "#ff9800",
+        "type": "more"
+      },
+      {
+        "id": 7,
+        "title": "Evacuation",
+        "icon": "directions_car",
+        "color": "#fdc60a",
+        "type": "automotive"
+      },
+      {
         "id": 2,
         "title": "Personal Safety",
         "icon": "local_drink",
@@ -59,25 +73,11 @@
         "type": "restaurant"
       },
       {
-        "id": 7,
-        "title": "Evacuation",
-        "icon": "directions_car",
-        "color": "#fdc60a",
-        "type": "automotive"
-      },
-      {
         "id": 8,
         "title": "Stay in Touch",
         "icon": "hotel",
         "color": "#ff8a65",
         "type": "hotel"
-      },
-      {
-        "id": 9,
-        "title": "Power Outage",
-        "icon": "flashlight_on_outlined",
-        "color": "#ff9800",
-        "type": "more"
       }
     ]
   },

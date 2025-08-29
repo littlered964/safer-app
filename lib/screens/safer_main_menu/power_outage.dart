@@ -119,27 +119,32 @@ class PowerOutage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final beforeStormTips = [
+      "Enroll in outage alerts and bookmark your utility’s outage map.",
+      "Test your generator; NEVER run it indoors. Have fresh fuel and a safe outdoor spot (at least 20 ft from doors/windows).",
       "Charge mobile devices and backup batteries.",
-      "Stock up on food, water, and medications.",
-      "Secure outdoor furniture and trim tree branches.",
-      "Know how to manually open your garage door.",
+      "Disengage electronic control for garage door; know how to manually open it.",
+      "Set fridge/freezer to the coldest setting.",
+      "Have cash on hand; card terminals and ATMs may be down.",
+      "Add surge protection and unplug non-essential electronics; leave one light on so you know when power returns.",
       "Make an emergency kit with flashlights and radios."
     ];
 
     final duringStormTips = [
-      "Stay indoors and away from windows.",
-      "Avoid using candles due to fire risk.",
-      "Report outages to Eversource using the app or website.",
-      "Limit opening refrigerator and freezer doors.",
-      "Unplug sensitive electronics to prevent surges."
+      "Report the outage once via your utility app/website or by phone. Don’t assume your neighbor reported it.",
+      "Stay far away from downed or sparking lines; treat all as energized and call 9-1-1.",
+      "Use flashlights or battery lanterns—avoid candles to reduce fire risk.",
+      "Run generators OUTSIDE only, 20+ ft from openings, with exhaust pointed away. Use a transfer switch—never back-feed a home via an outlet.",
+      "Conserve phone battery (low-power mode, limit streaming) and keep one device off for backup.",
+      "Keep fridge/freezer closed: a fridge stays cold ~4 hours; a full freezer ~48 hours if unopened.",
     ];
 
     final afterStormTips = [
-      "Check on neighbors, especially elderly or vulnerable.",
-      "Stay away from downed power lines.",
-      "Restock emergency supplies.",
-      "Safely discard perishable food that may have spoiled.",
-      "Review and improve your outage preparedness plan."
+      "Assume lines are live and report downed wires. Keep kids and pets away.",
+      "Check for electrical damage or the smell of smoke. If breakers trip repeatedly, call a licensed electrician.",
+      "Toss perishable food that was above 40°F (4°C) for over 2 hours, or if it smells/looks off.",
+      "Reset outlets and clocks; carefully power electronics back on with surge protection.",
+      "Document any damage (photos/video) before cleanup for insurance claims.",
+      "Replenish emergency supplies and fuel; review what worked and update your plan.",
     ];
 
     return Scaffold(
