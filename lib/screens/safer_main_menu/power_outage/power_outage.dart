@@ -4,14 +4,19 @@ import 'package:safer/configs/routes.dart';
 
 class PowerOutage extends StatelessWidget {
   final String title;
-
   const PowerOutage({super.key, required this.title});
 
+  // ---- Generic info block with optional in-card CTA to play the relevant game
   Widget buildInfoBlock(
-    BuildContext context,
-    String heading,
-    List<String> tips, {
+    BuildContext context, {
+    required String heading,
+    required List<String> tips,
     String? link,
+    // CTA config (optional)
+    IconData? ctaIcon,
+    String? ctaTitle,
+    String? ctaSubtitle,
+    VoidCallback? onPlay,
   }) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
@@ -30,24 +35,26 @@ class PowerOutage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            ...tips.map((tip) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("\u2022 ", style: TextStyle(fontSize: 16)),
-                      Expanded(
-                        child: Text(
-                          tip,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontFamily: 'Raleway',
-                          ),
+            ...tips.map(
+              (tip) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("\u2022 ", style: TextStyle(fontSize: 16)),
+                    Expanded(
+                      child: Text(
+                        tip,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontFamily: 'Raleway',
                         ),
                       ),
-                    ],
-                  ),
-                )),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             if (link != null) ...[
               const SizedBox(height: 10),
               GestureDetector(
@@ -63,6 +70,25 @@ class PowerOutage extends StatelessWidget {
                 ),
               ),
             ],
+            if (onPlay != null && ctaTitle != null) ...[
+              const Divider(height: 24),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(ctaIcon ?? Icons.sports_esports_outlined),
+                title: Text(
+                  ctaTitle,
+                  style: const TextStyle(fontFamily: 'Raleway'),
+                ),
+                subtitle: ctaSubtitle == null
+                    ? null
+                    : Text(
+                        ctaSubtitle,
+                        style: const TextStyle(fontFamily: 'Raleway'),
+                      ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: onPlay,
+              ),
+            ],
           ],
         ),
       ),
@@ -70,7 +96,8 @@ class PowerOutage extends StatelessWidget {
   }
 
   Widget buildRestorationBlock(BuildContext context) {
-    const url = 'https://www.eversource.com/content/residential/outages/restoration-process';
+    const url =
+        'https://www.eversource.com/content/residential/outages/restoration-process';
     const description =
         'Understand how Eversource restores power after major outages. This page outlines their step-by-step restoration process, prioritization of critical services, and estimated restoration timelines.';
 
@@ -121,8 +148,7 @@ class PowerOutage extends StatelessWidget {
     final links = <String, String>{
       'United Illuminating – Storm Checklist':
           'https://www.uinet.com/safety/stormsafety/stormchecklist',
-      'United Illuminating – Outages':
-          'https://www.uinet.com/outages',
+      'United Illuminating – Outages': 'https://www.uinet.com/outages',
       'Groton Utilities – Outage Info':
           'https://grotonutilities.com/251/Outages#:~:text=There%20are%20currently%20no%20service%20outages.',
       'SNEW (South Norwalk) – Power Outage Tips':
@@ -146,45 +172,28 @@ class PowerOutage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            ...links.entries.map((e) => ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    e.key,
-                    style: const TextStyle(fontSize: 16, fontFamily: 'Raleway'),
-                  ),
-                  trailing: const Icon(Icons.open_in_new, size: 18),
-                  onTap: () => launchUrl(Uri.parse(e.value)),
-                )),
+            ...links.entries.map(
+              (e) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  e.key,
+                  style:
+                      const TextStyle(fontSize: 16, fontFamily: 'Raleway'),
+                ),
+                trailing: const Icon(Icons.open_in_new, size: 18),
+                onTap: () => launchUrl(Uri.parse(e.value)),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget buildGameBlock(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-      clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        leading: const Icon(Icons.sports_esports),
-        title: const Text(
-          'Play the Power Outage Sorting Game',
-          style: TextStyle(fontFamily: 'Raleway'),
-        ),
-        subtitle: const Text(
-          'Sort items into “Helpful” vs “Not Helpful” to prep for outages.',
-          style: TextStyle(fontFamily: 'Raleway'),
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.pushNamed(context, Routes.powerOutageGame),
-      ),
-    );
-  }
-
-
   @override
   Widget build(BuildContext context) {
+    // ---- Tips content (unchanged)
     final beforeStormTips = [
       "Enroll in outage alerts and bookmark your utility’s outage map.",
       "Test your generator; NEVER run it indoors. Have fresh fuel and a safe outdoor spot (at least 20 ft from doors/windows).",
@@ -221,32 +230,53 @@ class PowerOutage extends StatelessWidget {
       ),
       body: ListView(
         children: [
+          // BEFORE block + game CTA (Preparedness Quiz)
           buildInfoBlock(
             context,
-            "Before the Storm",
-            beforeStormTips,
+            heading: "Before the Storm",
+            tips: beforeStormTips,
             link:
                 "https://www.eversource.com/content/residential/outages/storm-preparedness/before-a-storm",
+            ctaIcon: Icons.quiz_outlined,
+            ctaTitle: 'Play: Preparedness Quiz',
+            ctaSubtitle:
+                'True/False about kits, charging devices, generators, and surge protection.',
+            onPlay: () =>
+                Navigator.pushNamed(context, Routes.beforeOutageQuiz),
           ),
+
+          // DURING block + game CTA (Sorting / Safe vs Not Safe)
           buildInfoBlock(
             context,
-            "During the Storm",
-            duringStormTips,
+            heading: "During the Storm",
+            tips: duringStormTips,
             link:
                 "https://www.eversource.com/content/residential/outages/storm-preparedness/during-a-storm",
+            ctaIcon: Icons.swap_horiz, // or Icons.swipe
+            ctaTitle: 'Play: Sort-It (During Outage)',
+            ctaSubtitle:
+                'Swipe items into SAFE vs NOT SAFE (flashlights, candles, generators, etc.).',
+            onPlay: () =>
+                Navigator.pushNamed(context, Routes.duringOutageSort),
           ),
+
+          // AFTER block + game CTA (Recovery Choices)
           buildInfoBlock(
             context,
-            "After the Storm",
-            afterStormTips,
+            heading: "After the Storm",
+            tips: afterStormTips,
             link:
                 "https://www.eversource.com/content/residential/outages/storm-preparedness/after-a-storm",
+            ctaIcon: Icons.bolt_outlined,
+            ctaTitle: 'Play: Recovery Choices',
+            ctaSubtitle:
+                'Make post-outage decisions (food safety, power-up sequence, generators).',
+            onPlay: () =>
+                Navigator.pushNamed(context, Routes.afterOutageChoices),
           ),
+
           buildRestorationBlock(context),
-
           buildCtUtilitiesBlock(context),
-
-          buildGameBlock(context),
         ],
       ),
     );

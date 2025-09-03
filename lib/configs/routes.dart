@@ -38,7 +38,9 @@ class Routes {
   static const String evacuation = "/evacuation";
   static const String stayInTouch = "/stayInTouch";
   static const String powerOutage = "/powerOutage";
-  static const String powerOutageGame = "/powerOutageGame";
+  static const beforeOutageQuiz = '/beforeOutageQuiz';
+  static const duringOutageSort = '/duringOutageSort';
+  static const afterOutageChoices = '/afterOutageChoices';
 
   static const String termsOfUse = "/termsOfUse";
 
@@ -125,10 +127,21 @@ class Routes {
           builder: (context) => FontSetting(),
         );
 
-      case powerOutageGame:
+      case Routes.beforeOutageQuiz:
         return MaterialPageRoute(
-          builder: (context) => const PowerOutageGame(),
+          builder: (context) => const BeforeOutageQuizPage(),
         );
+
+      case Routes.duringOutageSort:
+        return MaterialPageRoute(
+          builder: (context) => const DuringOutageSortingPage(),
+        );
+
+      case Routes.afterOutageChoices:
+        return MaterialPageRoute(
+          builder: (context) => const AfterOutageChoicesPage(),
+        );
+
 
       default:
         return MaterialPageRoute(
