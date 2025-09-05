@@ -255,7 +255,7 @@ class PowerOutage extends StatelessWidget {
             ctaIcon: Icons.swap_horiz, // or Icons.swipe
             ctaTitle: 'Play: Sort-It (During Outage)',
             ctaSubtitle:
-                'Swipe items into SAFE vs NOT SAFE (flashlights, candles, generators, etc.).',
+                'Swipe items into HELPFUL vs NON-HELPFUL (flashlights, candles, generators, etc.).',
             onPlay: () =>
                 Navigator.pushNamed(context, Routes.duringOutageSort),
           ),
