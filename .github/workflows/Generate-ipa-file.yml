@@ -4,33 +4,70 @@ on:
   push:
     branches:
       - dev
+  # pull_request:  # uncomment if you want CI on PRs too
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14 
+
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v1
-      with:
-        flutter-version: '3.0.2'
+      - uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: flutter pub get
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.29.2'
+          cache: true
 
-    - name: Build .ipa
-      env:
-        APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-        APPLE_KEY: ${{ secrets.APPLE_KEY }}
-        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        APPLE_PROFILE: ${{ secrets.APPLE_PROFILE }}
-      run: |
-        # Commands to import your certificates and profiles
-        # Set up your Xcode project with the right signing configurations
-        flutter build ipa
+      - name: Flutter version
+        run: flutter --version
 
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: iOS App
-        path: build/ios/ipa/*.ipa
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install --repo-update
+
+      # Unsigned build (recommended for CI sanity)
+      - name: Build .ipa (unsigned)
+        run: flutter build ipa --no-codesign
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-ipa
+          path: build/ios/ipa/*.ipa
+
+      # Signed build (disabled)
+      # If/when you want a signed IPA from CI:
+      # 1) Create GitHub secrets:
+      #    - APPLE_CERT_P12            (base64 of your .p12)
+      #    - APPLE_CERT_P12_PASSWORD   (password for the .p12)
+      #    - APPLE_PROVISION_PROFILE   (base64 of .mobileprovision)
+      #    - APPLE_TEAM_ID
+      #    - KEYCHAIN_PASSWORD
+      # 2) Uncomment the steps below and remove the unsigned build step above.
+      #
+      # - name: Set up signing
+      #   env:
+      #     APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+      #     APPLE_CERT_P12_PASSWORD: ${{ secrets.APPLE_CERT_P12_PASSWORD }}
+      #     APPLE_PROVISION_PROFILE: ${{ secrets.APPLE_PROVISION_PROFILE }}
+      #     KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      #   run: |
+      #     KEYCHAIN=build.keychain
+      #     security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+      #     security default-keychain -s "$KEYCHAIN"
+      #     security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+      #     security set-keychain-settings -t 3600 -l "$KEYCHAIN"
+      #
+      #     echo "$APPLE_CERT_P12" | base64 --decode > cert.p12
+      #     security import cert.p12 -k "$KEYCHAIN" -P "$APPLE_CERT_P12_PASSWORD" -T /usr/bin/codesign
+      #
+      #     mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+      #     echo "$APPLE_PROVISION_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/app.mobileprovision
+      #
+      # - name: Build .ipa (signed)
+      #   run: flutter build ipa
