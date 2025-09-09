@@ -11,6 +11,8 @@ class PowerOutage extends StatelessWidget {
     BuildContext context, {
     required String heading,
     required List<String> tips,
+    required IconData icon,
+    Color? iconColor,
     String? link,
     // CTA config (optional)
     IconData? ctaIcon,
@@ -26,12 +28,20 @@ class PowerOutage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              heading,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Raleway',
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(
+                backgroundColor: (iconColor ?? Theme.of(context).primaryColor)
+                    .withOpacity(0.15),
+                child: Icon(icon, color: iconColor ?? Theme.of(context).primaryColor),
+              ),
+              title: Text(
+                heading,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Raleway',
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -178,8 +188,7 @@ class PowerOutage extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 title: Text(
                   e.key,
-                  style:
-                      const TextStyle(fontSize: 16, fontFamily: 'Raleway'),
+                  style: const TextStyle(fontSize: 16, fontFamily: 'Raleway'),
                 ),
                 trailing: const Icon(Icons.open_in_new, size: 18),
                 onTap: () => launchUrl(Uri.parse(e.value)),
@@ -193,34 +202,33 @@ class PowerOutage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ---- Tips content (unchanged)
     final beforeStormTips = [
-      "Enroll in outage alerts and bookmark your utility’s outage map.",
-      "Test your generator; NEVER run it indoors. Have fresh fuel and a safe outdoor spot (at least 20 ft from doors/windows).",
-      "Charge mobile devices and backup batteries.",
-      "Disengage electronic control for garage door; know how to manually open it.",
-      "Set fridge/freezer to the coldest setting.",
-      "Have cash on hand; card terminals and ATMs may be down.",
-      "Add surge protection and unplug non-essential electronics; leave one light on so you know when power returns.",
-      "Make an emergency kit with flashlights and radios."
+      "Sign up for outage alerts & bookmark utility map",
+      "Test generator (never indoors); keep fresh fuel, run 20+ ft from doors/windows",
+      "Charge phones & backups",
+      "Disengage garage door opener; know manual release",
+      "Turn fridge/freezer to coldest setting",
+      "Keep cash on hand (cards/ATMs may fail)",
+      "Unplug non-essentials; add surge protection; leave 1 light on",
+      "Prepare kit: flashlights, batteries, radio",
     ];
 
     final duringStormTips = [
-      "Report the outage once via your utility app/website or by phone. Don’t assume your neighbor reported it.",
-      "Stay far away from downed or sparking lines; treat all as energized and call 9-1-1.",
-      "Use flashlights or battery lanterns—avoid candles to reduce fire risk.",
-      "Run generators OUTSIDE only, 20+ ft from openings, with exhaust pointed away. Use a transfer switch—never back-feed a home via an outlet.",
-      "Conserve phone battery (low-power mode, limit streaming) and keep one device off for backup.",
-      "Keep fridge/freezer closed: a fridge stays cold ~4 hours; a full freezer ~48 hours if unopened.",
+      "Report outage once (utility app/site/phone)",
+      "Stay away from downed or sparking lines → call 911",
+      "Use flashlights/lanterns (no candles)",
+      "Run generators outside only (20+ ft, exhaust away, transfer switch)",
+      "Conserve phone battery (low-power, limit streaming, keep 1 device off)",
+      "Keep fridge/freezer closed (fridge ~4 hrs, freezer ~48 hrs)",
     ];
 
     final afterStormTips = [
-      "Assume lines are live and report downed wires. Keep kids and pets away.",
-      "Check for electrical damage or the smell of smoke. If breakers trip repeatedly, call a licensed electrician.",
-      "Toss perishable food that was above 40°F (4°C) for over 2 hours, or if it smells/looks off.",
-      "Reset outlets and clocks; carefully power electronics back on with surge protection.",
-      "Document any damage (photos/video) before cleanup for insurance claims.",
-      "Replenish emergency supplies and fuel; review what worked and update your plan.",
+      "Assume all wires are live → report downed lines",
+      "Check for electrical damage/smoke; call electrician if breakers trip",
+      "Toss food above 40°F for 2+ hrs, or if smells/looks bad",
+      "Reset outlets/clocks; power electronics back on carefully with surge protection",
+      "Document damage (photos/video) before cleanup → insurance",
+      "Restock supplies & fuel; review what worked for next time",
     ];
 
     return Scaffold(
@@ -230,11 +238,12 @@ class PowerOutage extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          // BEFORE block + game CTA (Preparedness Quiz)
           buildInfoBlock(
             context,
             heading: "Before the Storm",
             tips: beforeStormTips,
+            icon: Icons.check_circle,
+            iconColor: Colors.green,
             link:
                 "https://www.eversource.com/content/residential/outages/storm-preparedness/before-a-storm",
             ctaIcon: Icons.quiz_outlined,
@@ -244,27 +253,27 @@ class PowerOutage extends StatelessWidget {
             onPlay: () =>
                 Navigator.pushNamed(context, Routes.beforeOutageQuiz),
           ),
-
-          // DURING block + game CTA (Sorting / Safe vs Not Safe)
           buildInfoBlock(
             context,
             heading: "During the Storm",
             tips: duringStormTips,
+            icon: Icons.warning_amber,
+            iconColor: Colors.orange,
             link:
                 "https://www.eversource.com/content/residential/outages/storm-preparedness/during-a-storm",
-            ctaIcon: Icons.swap_horiz, // or Icons.swipe
+            ctaIcon: Icons.swap_horiz,
             ctaTitle: 'Play: Sort-It (During Outage)',
             ctaSubtitle:
                 'Swipe items into HELPFUL vs NON-HELPFUL (flashlights, candles, generators, etc.).',
             onPlay: () =>
                 Navigator.pushNamed(context, Routes.duringOutageSort),
           ),
-
-          // AFTER block + game CTA (Recovery Choices)
           buildInfoBlock(
             context,
             heading: "After the Storm",
             tips: afterStormTips,
+            icon: Icons.home,
+            iconColor: Colors.blue,
             link:
                 "https://www.eversource.com/content/residential/outages/storm-preparedness/after-a-storm",
             ctaIcon: Icons.bolt_outlined,
@@ -274,7 +283,6 @@ class PowerOutage extends StatelessWidget {
             onPlay: () =>
                 Navigator.pushNamed(context, Routes.afterOutageChoices),
           ),
-
           buildRestorationBlock(context),
           buildCtUtilitiesBlock(context),
         ],
