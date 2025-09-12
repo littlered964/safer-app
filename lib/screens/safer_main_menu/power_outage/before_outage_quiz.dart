@@ -15,33 +15,114 @@ class BeforeOutageQuizPage extends StatefulWidget {
 }
 
 class _BeforeOutageQuizPageState extends State<BeforeOutageQuizPage> {
-  final List<QuizQuestion> _questions = const [
-    QuizQuestion(
-      'You should enroll in outage alerts and bookmark your utility’s outage map.',
-      true,
-      'Alerts + maps help you track restoration progress and stay informed.',
-    ),
-    QuizQuestion(
-      'It\'s fine to run a generator in the garage if the door is cracked open.',
-      false,
-      'Never run generators indoors or in garages – carbon monoxide risk.',
-    ),
-    QuizQuestion(
-      'Charging phones and backup batteries before a storm is recommended.',
-      true,
-      'Full batteries keep you connected to updates and emergency contacts.',
-    ),
-    QuizQuestion(
-      'It\'s best to set the fridge/freezer to their coldest settings before an outage.',
-      true,
-      'Colder temps help food stay safe longer during a power loss.',
-    ),
-    QuizQuestion(
-      'Use candles as your primary light source during outages.',
-      false,
-      'Avoid candles due to fire risk. Use flashlights or battery lanterns instead.',
-    ),
-  ];
+    final List<QuizQuestion> _questions = const [
+      // Alerts & outage map
+      QuizQuestion(
+        'You should enroll in outage alerts and bookmark your utility’s outage map.',
+        true,
+        'Alerts + maps help you track restoration progress and stay informed.',
+      ),
+      QuizQuestion(
+        'Bookmarking your utility’s outage map is unnecessary before a storm.',
+        false,
+        'Having the map handy helps you monitor outages and repair estimates quickly.',
+      ),
+
+      // Generator: never indoors, fresh fuel, distance
+      QuizQuestion(
+        'It\'s fine to run a generator in the garage if the door is cracked open.',
+        false,
+        'Never run generators indoors or in garages – carbon monoxide risk.',
+      ),
+      QuizQuestion(
+        'A safe practice is to run a generator at least 20 feet away from doors and windows.',
+        true,
+        'Distance reduces carbon monoxide dangers from exhaust.',
+      ),
+      QuizQuestion(
+        'Keeping fresh fuel on hand for your generator is part of storm prep.',
+        true,
+        'Fresh fuel ensures the generator starts and runs reliably when needed.',
+      ),
+
+      // Charge phones & backups
+      QuizQuestion(
+        'Charging phones and backup batteries before a storm is recommended.',
+        true,
+        'Full batteries keep you connected to updates and emergency contacts.',
+      ),
+      QuizQuestion(
+        'You should wait until after the power goes out to charge phones and power banks.',
+        false,
+        'Charge everything beforehand so you’re ready for an extended outage.',
+      ),
+
+      // Garage door manual release
+      QuizQuestion(
+        'Disengaging your garage door opener so you can open it manually is smart prep.',
+        true,
+        'Knowing the manual release lets you get your car out if power is lost.',
+      ),
+      QuizQuestion(
+        'There’s no need to learn the manual release for your garage door before a storm.',
+        false,
+        'Locate and test the manual release in advance so you’re not stuck.',
+      ),
+
+      // Fridge / Freezer to coldest
+      QuizQuestion(
+        'It\'s best to set the fridge and freezer to their coldest settings before an outage.',
+        true,
+        'Colder temps help food stay safe longer during a power loss.',
+      ),
+      QuizQuestion(
+        'Warming your fridge/freezer before a storm helps save energy and protect food.',
+        false,
+        'Colder settings extend safe food temperatures during an outage.',
+      ),
+
+      // Cash on hand
+      QuizQuestion(
+        'Keeping some cash on hand is recommended because cards/ATMs may fail.',
+        true,
+        'Networks and ATMs can be down; cash ensures you can still make purchases.',
+      ),
+      QuizQuestion(
+        'Relying only on credit/debit is fine because payment networks always stay up.',
+        false,
+        'Connectivity can fail in storms, so carry some cash as a backup.',
+      ),
+
+      // Unplug non-essentials, surge protection, leave 1 light on
+      QuizQuestion(
+        'Unplug non-essential electronics and use surge protectors before the storm.',
+        true,
+        'This reduces damage risk from power surges when electricity returns.',
+      ),
+      QuizQuestion(
+        'You should plug in as many devices as possible during the storm to “use the power while you can.”',
+        false,
+        'Unplug non-essentials to avoid surge damage; only keep what you need.',
+      ),
+      QuizQuestion(
+        'Leaving one light on helps you notice when power is restored.',
+        true,
+        'A single indicator light prevents you from constantly checking breakers.',
+      ),
+
+      // Preparedness kit: flashlights, batteries, radio
+      QuizQuestion(
+        'Your kit should include flashlights, extra batteries, and a radio.',
+        true,
+        'These essentials provide safe light and updates when the power is out.',
+      ),
+      QuizQuestion(
+        'A storm kit doesn’t need a radio if you have flashlights and phone chargers.',
+        false,
+        'A radio helps you get updates if cell service or data is unreliable.',
+      ),
+    ];
+
 
   int _index = 0;
   int _score = 0;
