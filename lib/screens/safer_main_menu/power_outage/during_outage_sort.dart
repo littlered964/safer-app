@@ -1,6 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:confetti/confetti.dart';
 
 class DuringOutageSortingPage extends StatefulWidget {
   const DuringOutageSortingPage({super.key});
@@ -10,7 +13,7 @@ class DuringOutageSortingPage extends StatefulWidget {
 }
 
 class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late Ticker _ticker;
   Duration? _prevElapsed; // for delta timing
 
@@ -39,11 +42,49 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
 
   late List<_CardData> _deck;
 
+  // Audio + Haptics 
+  late final AudioPlayer _sfxPlayer;
+  bool _muted = false;
+
+  Future<void> _playSfx(String filename, {double volume = 0.9}) async {
+    if (_muted) return;
+    try {
+      await _sfxPlayer.stop();
+      await _sfxPlayer.play(AssetSource('audio/$filename'), volume: volume);
+    } catch (_) {
+    }
+  }
+
+  void _hapticGood() => HapticFeedback.lightImpact();
+  void _hapticBad() => HapticFeedback.mediumImpact();
+  void _hapticWin() => HapticFeedback.heavyImpact();
+
+  // Shake animation (wrong items)
+  late final AnimationController _shakeCtl;
+  late final Animation<double> _shake;
+  final Set<_CardData> _shaking = {}; // which items are currently shaking
+
+  // Confetti (on win)
+  late final ConfettiController _confettiCtl;
+
   @override
   void initState() {
     super.initState();
     _deck = _makeDeck();
     _ticker = createTicker(_onTick)..start();
+
+    _sfxPlayer = AudioPlayer(playerId: 'sfx')..setReleaseMode(ReleaseMode.stop);
+
+    _shakeCtl = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
+    _shake = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: -10), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 10, end: -8), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -8, end: 6), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 6, end: 0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _shakeCtl, curve: Curves.easeOut));
+
+    _confettiCtl = ConfettiController(duration: const Duration(seconds: 2));
 
     // Show the intro on first open only.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -61,13 +102,15 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
   @override
   void dispose() {
     _ticker.dispose();
+    _sfxPlayer.dispose();
+    _shakeCtl.dispose();
+    _confettiCtl.dispose();
     super.dispose();
   }
 
-  // Build the deck from your tips — short labels (<= 4 words) + variants
   List<_CardData> _makeDeck() {
     return [
-      // --- Helpful (variants) ---
+      // Helpful
       _CardData(icon: Icons.report, label: "Report outage once", helpful: true, tip: "Report the outage once via your utility app/site or phone."),
       _CardData(icon: Icons.phone_iphone, label: "Use utility app", helpful: true, tip: "Use the official utility app/site to report."),
       _CardData(icon: Icons.flashlight_on, label: "Use flashlights", helpful: true, tip: "Use flashlights or battery lanterns; avoid candles."),
@@ -81,7 +124,7 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
       _CardData(icon: Icons.warning_amber, label: "Avoid downed lines", helpful: true, tip: "Treat all downed lines as energized; stay far away."),
       _CardData(icon: Icons.phone_in_talk, label: "Call 9-1-1", helpful: true, tip: "Report sparking/downed lines to 9-1-1/utility."),
 
-      // --- Not Helpful (variants) ---
+      // Not Helpful (variants)
       _CardData(icon: Icons.report_gmailerrorred, label: "Spam reports", helpful: false, tip: "Report once—multiple reports don’t speed repairs."),
       _CardData(icon: Icons.candlestick_chart, label: "Use candles", helpful: false, tip: "Candles raise fire risk—use battery lights."),
       _CardData(icon: Icons.local_fire_department, label: "Many candles", helpful: false, tip: "Open flames are hazardous in outages."),
@@ -97,7 +140,6 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
     ];
   }
 
-  // Fixed ticker delta
   void _onTick(Duration elapsed) {
     if (!_running) return;
 
@@ -116,6 +158,9 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
 
     _fallers.removeWhere((f) {
       if (f.y > f.groundY) {
+        // Missed item -> mistake sound + haptic
+        _playSfx('incorrect.aiff');
+        _hapticBad();
         _registerMistake("Missed: ${f.data.label}\n${f.data.tip}");
         return true;
       }
@@ -138,15 +183,26 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
     _fallers.add(_Faller(data: data, fracX: x));
   }
 
-  // Show tip + (+100) on correct; tip on incorrect
-  void _registerHit(_CardData data, bool droppedToHelpfulBin) {
+  // Show tip + (+100) on correct; tip on incorrect (with shake)
+  void _registerHit(_CardData data, bool droppedToHelpfulBin) async {
     final correct = data.helpful == droppedToHelpfulBin;
     if (correct) {
       _score += 100;
       _sorted += 1;
+      _playSfx('correct.mp3');
+      _hapticGood();
       _showSnack("${data.tip}  (+100)", Colors.green, milliseconds: 2200);
+      _removeOne(data);
     } else {
+      // wrong -> shake the item briefly, then remove
+      _playSfx('incorrect.aiff');
+      _hapticBad();
+      setState(() => _shaking.add(data));
+      _shakeCtl.forward(from: 0);
+      await Future.delayed(_shakeCtl.duration ?? const Duration(milliseconds: 350));
+      setState(() => _shaking.remove(data));
       _registerMistake(data.tip);
+      _removeOne(data);
     }
     _checkEnd();
   }
@@ -155,7 +211,6 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
   void _registerMistake(String msg) {
     _mistakes += 1;
     _showSnack(msg, Colors.orange, milliseconds: 2200);
-    _checkEnd();
   }
 
   void _checkEnd() {
@@ -167,6 +222,10 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
       );
     } else if (_sorted >= _targetSorted) {
       _running = false;
+      // WIN sound + haptic + confetti
+      _playSfx('win.wav');
+      _hapticWin();
+      _confettiCtl.play();
       _endDialog(
         title: "Great job!",
         body: "You sorted $_sorted items.\nScore: $_score\n\nYou kept it safe during the storm!",
@@ -212,6 +271,7 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
       _prevElapsed = null; // reset delta timing
       _running = true;     // Restart should NOT show intro again
       _needsIntro = false;
+      _shaking.clear();
     });
   }
 
@@ -239,7 +299,7 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
         onWillPop: () async {
           Navigator.of(dialogCtx).pop();      // close intro
           Navigator.of(context).maybePop();   // go back to main page
-          return false;                       // we've handled it
+          return false; 
         },
         child: AlertDialog(
           title: const Text("How to play:"),
@@ -291,117 +351,155 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("During the Storm — Sort Game")),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // TOP HUD (Wrap to avoid overflow)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  _StatChip(icon: Icons.star, label: "Score", value: "$_score"),
-                  _StatChip(icon: Icons.done_all, label: "Sorted", value: "$_sorted/$_targetSorted"),
-                  _StatChip(icon: Icons.warning, label: "Mistakes", value: "$_mistakes/$_maxMistakes"),
-                  IconButton(
-                    tooltip: _running ? "Pause" : "Resume",
-                    onPressed: () {
-                      setState(() {
-                        _running = !_running;
-                        _prevElapsed = null; // avoid big dt on resume
-                        _needsIntro = false; // shouldn't show intro later
-                      });
-                    },
-                    icon: Icon(_running ? Icons.pause_circle_filled : Icons.play_circle_fill),
-                  ),
-                  IconButton(
-                    tooltip: "Restart",
-                    onPressed: _restart,
-                    icon: const Icon(Icons.refresh),
-                  ),
-                ],
+      appBar: AppBar(
+        title: const Text("During the Storm — Sort Game"),
+        actions: [
+          IconButton(
+            tooltip: _muted ? "Unmute sounds" : "Mute sounds",
+            icon: Icon(_muted ? Icons.volume_off : Icons.volume_up),
+            onPressed: () => setState(() => _muted = !_muted),
+          ),
+          IconButton(
+            tooltip: _running ? "Pause" : "Resume",
+            onPressed: () {
+              setState(() {
+                _running = !_running;
+                _prevElapsed = null; // avoid big dt on resume
+                _needsIntro = false; // shouldn't show intro later
+              });
+            },
+            icon: Icon(_running ? Icons.pause_circle_filled : Icons.play_circle_fill),
+          ),
+          IconButton(
+            tooltip: "Restart",
+            onPressed: _restart,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: Container(
+        // Subtle gradient background
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0F172A), // slate-900-ish
+              Color(0xFF1E293B), // slate-800-ish
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // TOP HUD
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _StatChip(icon: Icons.star, label: "Score", value: "$_score"),
+                    _StatChip(icon: Icons.done_all, label: "Sorted", value: "$_sorted/$_targetSorted"),
+                    _StatChip(icon: Icons.warning, label: "Mistakes", value: "$_mistakes/$_maxMistakes"),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
+              const SizedBox(height: 4),
 
-            // Playfield + bins
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final w = constraints.maxWidth;
+              // Playfield + bins
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final w = constraints.maxWidth;
 
-                  // fixed card width, clamped to screen so it won't overflow
-                  final cardWidth = min(w * 0.75, 260.0);
-                  const cardHeight = itemHeight;
+                    // fixed card width, clamped to screen so it won't overflow
+                    final cardWidth = min(w * 0.75, 260.0);
+                    const cardHeight = itemHeight;
 
-                  return Stack(
-                    children: [
-                      for (final f in _fallers)
-                        Positioned(
-                          left: (f.fracX * w - cardWidth / 2).clamp(0.0, w - cardWidth),
-                          top: f.y.clamp(0, groundY - cardHeight),
-                          child: _DraggableCard(
-                            data: f.data,
-                            width: cardWidth,
-                            height: cardHeight,
-                            iconOnly: _iconOnly,
-                            onDragStarted: () => setState(() {}),
-                            onDragEnd: (_) => setState(() {}),
+                    return Stack(
+                      children: [
+                        // Confetti overlay
+                        Align(
+                          alignment: Alignment.topCenter,
+                          child: IgnorePointer(
+                            child: ConfettiWidget(
+                              confettiController: _confettiCtl,
+                              blastDirectionality: BlastDirectionality.explosive,
+                              numberOfParticles: 20,
+                              maxBlastForce: 14,
+                              minBlastForce: 6,
+                              emissionFrequency: 0.02,
+                              shouldLoop: false,
+                            ),
                           ),
                         ),
 
-                      // Bins row
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _SortBin(
-                                  label: "Helpful",
-                                  color: Colors.green,
-                                  icon: Icons.thumb_up_alt,
-                                  onAccept: (data) {
-                                    _registerHit(data, true);
-                                    _removeOne(data);
-                                  },
+                        for (final f in _fallers)
+                          Positioned(
+                            left: (f.fracX * w - cardWidth / 2).clamp(0.0, w - cardWidth),
+                            top: f.y.clamp(0, groundY - cardHeight),
+                            child: _DraggableCard(
+                              data: f.data,
+                              width: cardWidth,
+                              height: cardHeight,
+                              iconOnly: _iconOnly,
+                              // apply shake offset only to flagged item(s)
+                              shakeOffset: _shaking.contains(f.data) ? _shake.value : 0,
+                              onDragStarted: () => setState(() {}),
+                              onDragEnd: (_) => setState(() {}),
+                            ),
+                          ),
+
+                        // Bins row
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _SortBin(
+                                    label: "Helpful",
+                                    color: Colors.greenAccent.shade400,
+                                    icon: Icons.thumb_up_alt,
+                                    onAccept: (data) {
+                                      _registerHit(data, true);
+                                    },
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _SortBin(
-                                  label: "Not Helpful",
-                                  color: Colors.red,
-                                  icon: Icons.thumb_down_alt,
-                                  onAccept: (data) {
-                                    _registerHit(data, false);
-                                    _removeOne(data);
-                                  },
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _SortBin(
+                                    label: "Not Helpful",
+                                    color: Colors.redAccent.shade200,
+                                    icon: Icons.thumb_down_alt,
+                                    onAccept: (data) {
+                                      _registerHit(data, false);
+                                    },
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
 
-            // Quick legend tip
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Text(
-                "Drag falling items into the correct bin. Items align with official safety guidance.",
-                style: Theme.of(context).textTheme.labelMedium,
+              // Quick legend tip
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Text(
+                  "Drag falling items into the correct bin. Items align with official safety guidance.",
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white70),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -415,7 +513,7 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
   }
 }
 
-// ===== Models / Widgets =====
+// Models / Widgets
 
 class _CardData {
   final IconData icon;
@@ -443,6 +541,7 @@ class _DraggableCard extends StatelessWidget {
   final double width;
   final double height;
   final bool iconOnly;
+  final double shakeOffset;
   final VoidCallback? onDragStarted;
   final void Function(DraggableDetails)? onDragEnd;
 
@@ -451,17 +550,21 @@ class _DraggableCard extends StatelessWidget {
     required this.width,
     required this.height,
     required this.iconOnly,
+    required this.shakeOffset,
     this.onDragStarted,
     this.onDragEnd,
   });
 
   @override
   Widget build(BuildContext context) {
-    final child = _ItemChip(
-      data: data,
-      width: width,
-      height: height,
-      iconOnly: iconOnly,
+    final child = Transform.translate(
+      offset: Offset(shakeOffset, 0),
+      child: _ItemChip(
+        data: data,
+        width: width,
+        height: height,
+        iconOnly: iconOnly,
+      ),
     );
     return Draggable<_CardData>(
       data: data,
@@ -502,7 +605,7 @@ class _ItemChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.black12, width: 1.2),
           boxShadow: const [
-            BoxShadow(blurRadius: 6, offset: Offset(0, 3), color: Colors.black12),
+            BoxShadow(blurRadius: 6, offset: Offset(0, 3), color: Colors.black26),
           ],
         ),
         child: Row(
@@ -565,10 +668,10 @@ class _SortBinState extends State<_SortBin> {
           padding: const EdgeInsets.all(12),
           height: 160,
           decoration: BoxDecoration(
-            color: _hovered ? widget.color.withOpacity(0.1) : Colors.grey.shade50,
+            color: _hovered ? widget.color.withOpacity(0.12) : Colors.white.withOpacity(0.06),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: _hovered ? widget.color : Colors.black12,
+              color: _hovered ? widget.color : Colors.white24,
               width: 2,
             ),
           ),
@@ -585,7 +688,8 @@ class _SortBinState extends State<_SortBin> {
                     ?.copyWith(color: widget.color, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
-              Text("Drop here", style: Theme.of(context).textTheme.labelSmall),
+              Text("Drop here",
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white70)),
             ],
           ),
         );
@@ -607,22 +711,41 @@ class _StatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 18),
-      label: Row(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.12),        // translucent on dark bg
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white24, width: 1),
+        boxShadow: const [
+          BoxShadow(blurRadius: 6, offset: Offset(0, 3), color: Colors.black26),
+        ],
+      ),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text("$label: ", style: Theme.of(context).textTheme.labelMedium),
+          Icon(icon, size: 18, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            '$label: ',
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(color: Colors.white70),
+          ),
           Text(
             value,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
     );
   }
 }
+
 
 /// Small rule row for the intro dialog
 class _RuleRow extends StatelessWidget {

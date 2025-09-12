@@ -28,6 +28,8 @@ dependencies:
   url_launcher: ^6.2.5
   flutter_spinbox: ^0.13.1
   device_info_plus: ^9.0.3
+  audioplayers: ^6.0.0
+  confetti: ^0.7.0
 
 
 # flutter_spinbox depends on intl ^0.16.1 but flutter_localizations depends
@@ -44,6 +46,7 @@ flutter:
     - assets/data/
     - assets/images/
     - assets/locale/
+    - assets/audio/
 
   fonts:
     - family: Raleway
