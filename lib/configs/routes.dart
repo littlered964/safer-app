@@ -139,7 +139,7 @@ class Routes {
 
       case Routes.afterOutageChoices:
         return MaterialPageRoute(
-          builder: (context) => const AfterOutageChoicesPage(),
+          builder: (context) => const AfterOutageGame(),
         );
 
 
