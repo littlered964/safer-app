@@ -12,17 +12,32 @@ class DuringOutageSortingPage extends StatefulWidget {
   State<DuringOutageSortingPage> createState() => _DuringOutageSortingPageState();
 }
 
+enum _Difficulty { easy, medium, hard }
+
 class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
     with TickerProviderStateMixin {
   late Ticker _ticker;
-  Duration? _prevElapsed; // for delta timing
+  Duration? _prevElapsed;
 
   final Random _rng = Random();
 
-  final double _spawnEverySec = 1.8; // spawn cadence
-  final double _fallSpeed = 140; // logical px/sec
-  final int _targetSorted = 15; // win condition
-  final int _maxMistakes = 3; // lose condition
+  final double _spawnEverySec = 1.8;
+  double _fallSpeed = 140; // default = medium
+  final int _targetSorted = 15;
+  final int _maxMistakes = 3;
+
+  _Difficulty _difficulty = _Difficulty.medium;
+
+  double _speedFor(_Difficulty d) {
+    switch (d) {
+      case _Difficulty.easy:
+        return 95;
+      case _Difficulty.medium:
+        return 140;
+      case _Difficulty.hard:
+        return 190;
+    }
+  }
 
   double _timeSinceSpawn = 0;
   int _score = 0;
@@ -30,19 +45,13 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
   int _sorted = 0;
 
   bool _running = true;
-
-  // Show the “how to play” modal only on first open (not on Restart)
   bool _needsIntro = true;
-
-  // Toggle to hide labels if you want pure icon-only gameplay
   final bool _iconOnly = false;
 
-  // Active falling pieces
   final List<_Faller> _fallers = [];
-
   late List<_CardData> _deck;
 
-  // Audio + Haptics 
+  // Audio + Haptics
   late final AudioPlayer _sfxPlayer;
   bool _muted = false;
 
@@ -51,8 +60,7 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
     try {
       await _sfxPlayer.stop();
       await _sfxPlayer.play(AssetSource('audio/$filename'), volume: volume);
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   void _hapticGood() => HapticFeedback.lightImpact();
@@ -66,6 +74,9 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
 
   // Confetti (on win)
   late final ConfettiController _confettiCtl;
+
+  // Shorter bin area so playfield is taller (bins still bottom-anchored)
+  static const double _binAreaHeight = 120; // ~half of original visual height
 
   @override
   void initState() {
@@ -158,7 +169,6 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
 
     _fallers.removeWhere((f) {
       if (f.y > f.groundY) {
-        // Missed item -> mistake sound + haptic
         _playSfx('incorrect.aiff');
         _hapticBad();
         _registerMistake("Missed: ${f.data.label}\n${f.data.tip}");
@@ -211,6 +221,8 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
   void _registerMistake(String msg) {
     _mistakes += 1;
     _showSnack(msg, Colors.orange, milliseconds: 2200);
+    // ensure game ends immediately if mistakes hit the limit due to drops
+    _checkEnd();
   }
 
   void _checkEnd() {
@@ -272,6 +284,8 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
       _running = true;     // Restart should NOT show intro again
       _needsIntro = false;
       _shaking.clear();
+      // keep current difficulty; reset speed to it
+      _fallSpeed = _speedFor(_difficulty);
     });
   }
 
@@ -299,41 +313,81 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
         onWillPop: () async {
           Navigator.of(dialogCtx).pop();      // close intro
           Navigator.of(context).maybePop();   // go back to main page
-          return false; 
+          return false;
         },
-        child: AlertDialog(
-          title: const Text("How to play:"),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _RuleRow(text: "Drag falling items into the correct bin"),
-              _RuleRow(text: "Helpful vs Not Helpful during an outage"),
-              _RuleRow(text: "+100 for correct. 3 mistakes ends the round"),
-              _RuleRow(text: "Sort 15 items to win"),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogCtx).pop();    // close intro
-                Navigator.of(context).maybePop(); // back to main page
-              },
-              child: const Text("Back"),
-            ),
-            FilledButton.icon(
-              icon: const Icon(Icons.play_arrow),
-              label: const Text("Play now!"),
-              onPressed: () {
-                Navigator.of(dialogCtx).pop(); // close intro
-                setState(() {
-                  _running = true;
-                  _needsIntro = false;
-                  _prevElapsed = null;
-                });
-              },
-            ),
-          ],
+        child: StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return AlertDialog(
+              title: const Text("How to play:"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _RuleRow(text: "Drag falling items into the correct bin"),
+                  const _RuleRow(text: "Helpful vs Not Helpful during an outage"),
+                  const _RuleRow(text: "+100 for correct. 3 mistakes ends the round"),
+                  const _RuleRow(text: "Sort 15 items to win"),
+                  const SizedBox(height: 12),
+                  Text("Difficulty", style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: const Text("Easy"),
+                        selected: _difficulty == _Difficulty.easy,
+                        onSelected: (v) {
+                          if (!v) return;
+                          setLocal(() => _difficulty = _Difficulty.easy);
+                        },
+                      ),
+                      ChoiceChip(
+                        label: const Text("Medium"),
+                        selected: _difficulty == _Difficulty.medium,
+                        onSelected: (v) {
+                          if (!v) return;
+                          setLocal(() => _difficulty = _Difficulty.medium);
+                        },
+                      ),
+                      ChoiceChip(
+                        label: const Text("Hard"),
+                        selected: _difficulty == _Difficulty.hard,
+                        onSelected: (v) {
+                          if (!v) return;
+                          setLocal(() => _difficulty = _Difficulty.hard);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogCtx).pop();    // close intro
+                    Navigator.of(context).maybePop(); // back to main page
+                  },
+                  child: const Text("Back"),
+                ),
+                FilledButton.icon(
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text("Play now!"),
+                  onPressed: () {
+                    // apply selected difficulty speed
+                    setState(() {
+                      _fallSpeed = _speedFor(_difficulty);
+                    });
+                    Navigator.of(dialogCtx).pop(); // close intro
+                    setState(() {
+                      _running = true;
+                      _needsIntro = false;
+                      _prevElapsed = null;
+                    });
+                  },
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -341,14 +395,7 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final groundY = size.height - 220; // where bins start
     const itemHeight = 68.0;
-
-    // Update groundY now that we know size
-    for (final f in _fallers) {
-      f.groundY = groundY;
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -418,9 +465,19 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
                     final cardWidth = min(w * 0.75, 260.0);
                     const cardHeight = itemHeight;
 
+                    // Finish line y (top of bin area)
+                    final finishLineY = constraints.maxHeight - _binAreaHeight;
+
+                    // Update fallers' threshold so tick can remove instantly
+                    for (final f in _fallers) {
+                      // Trigger when TOP passes (finishLineY - cardHeight) == bottom reaches line
+                      f.groundY = finishLineY - cardHeight;
+                    }
+
                     return Stack(
+                      clipBehavior: Clip.hardEdge, // ensure fallers don't draw over bins
                       children: [
-                        // Confetti overlay
+                        // Confetti overlay (top)
                         Align(
                           alignment: Alignment.topCenter,
                           child: IgnorePointer(
@@ -436,51 +493,78 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
                           ),
                         ),
 
-                        for (final f in _fallers)
-                          Positioned(
-                            left: (f.fracX * w - cardWidth / 2).clamp(0.0, w - cardWidth),
-                            top: f.y.clamp(0, groundY - cardHeight),
-                            child: _DraggableCard(
-                              data: f.data,
-                              width: cardWidth,
-                              height: cardHeight,
-                              iconOnly: _iconOnly,
-                              // apply shake offset only to flagged item(s)
-                              shakeOffset: _shaking.contains(f.data) ? _shake.value : 0,
-                              onDragStarted: () => setState(() {}),
-                              onDragEnd: (_) => setState(() {}),
+                        // FALLERS limited to area above finish line
+                        Positioned.fill(
+                          top: 0,
+                          bottom: _binAreaHeight,
+                          child: Stack(
+                            children: [
+                              for (final f in _fallers)
+                                Positioned(
+                                  left: (f.fracX * w - cardWidth / 2).clamp(0.0, w - cardWidth),
+                                  top: f.y.clamp(0, (constraints.maxHeight - _binAreaHeight) - cardHeight),
+                                  child: _DraggableCard(
+                                    data: f.data,
+                                    width: cardWidth,
+                                    height: cardHeight,
+                                    iconOnly: _iconOnly,
+                                    // apply shake offset only to flagged item(s)
+                                    shakeOffset: _shaking.contains(f.data) ? _shake.value : 0,
+                                    onDragStarted: () => setState(() {}),
+                                    onDragEnd: (_) => setState(() {}),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+
+                        // FINISH LINE right above bins
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: finishLineY - 1,
+                          child: IgnorePointer(
+                            child: Container(
+                              height: 2,
+                              color: Colors.white24,
                             ),
                           ),
+                        ),
 
-                        // Bins row
+                        // Bins row (half height, bottom-anchored)
                         Align(
                           alignment: Alignment.bottomCenter,
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: _SortBin(
-                                    label: "Helpful",
-                                    color: Colors.greenAccent.shade400,
-                                    icon: Icons.thumb_up_alt,
-                                    onAccept: (data) {
-                                      _registerHit(data, true);
-                                    },
+                            child: SizedBox(
+                              height: _binAreaHeight - 24, // leave some padding top inside area
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _SortBin(
+                                      label: "Helpful",
+                                      color: Colors.greenAccent.shade400,
+                                      icon: Icons.thumb_up_alt,
+                                      onAccept: (data) {
+                                        _registerHit(data, true);
+                                      },
+                                      binHeight: 80, // half-height
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _SortBin(
-                                    label: "Not Helpful",
-                                    color: Colors.redAccent.shade200,
-                                    icon: Icons.thumb_down_alt,
-                                    onAccept: (data) {
-                                      _registerHit(data, false);
-                                    },
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _SortBin(
+                                      label: "Not Helpful",
+                                      color: Colors.redAccent.shade200,
+                                      icon: Icons.thumb_down_alt,
+                                      onAccept: (data) {
+                                        _registerHit(data, false);
+                                      },
+                                      binHeight: 80, // half-height
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -532,7 +616,7 @@ class _Faller {
   final _CardData data;
   final double fracX; // 0..1 of width
   double y = -80; // starts above screen
-  double groundY = 600; // set from layout
+  double groundY = 600; // threshold for top; set from layout
   _Faller({required this.data, required this.fracX});
 }
 
@@ -635,12 +719,14 @@ class _SortBin extends StatefulWidget {
   final Color color;
   final IconData icon;
   final void Function(_CardData data) onAccept;
+  final double binHeight; // control bin visual height
 
   const _SortBin({
     required this.label,
     required this.color,
     required this.icon,
     required this.onAccept,
+    required this.binHeight,
   });
 
   @override
@@ -665,8 +751,8 @@ class _SortBinState extends State<_SortBin> {
       builder: (context, candidates, rejects) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.all(12),
-          height: 160,
+          padding: const EdgeInsets.all(8),            // tight padding to fit
+          height: widget.binHeight,                    // e.g., 80
           decoration: BoxDecoration(
             color: _hovered ? widget.color.withOpacity(0.12) : Colors.white.withOpacity(0.06),
             borderRadius: BorderRadius.circular(16),
@@ -675,22 +761,43 @@ class _SortBinState extends State<_SortBin> {
               width: 2,
             ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon, color: widget.color, size: 28),
-              const SizedBox(height: 8),
-              Text(
-                widget.label,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(color: widget.color, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              Text("Drop here",
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white70)),
-            ],
+          child: LayoutBuilder(
+            builder: (ctx, c) {
+              return FittedBox(
+                fit: BoxFit.scaleDown,                 // prevents overflow by scaling down
+                alignment: Alignment.center,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: c.maxWidth,              // keep full width
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(widget.icon, color: widget.color, size: 22),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelLarge
+                            ?.copyWith(color: widget.color, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        "Drop here",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         );
       },
@@ -746,7 +853,6 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-
 /// Small rule row for the intro dialog
 class _RuleRow extends StatelessWidget {
   final String text;
@@ -764,7 +870,7 @@ class _RuleRow extends StatelessWidget {
             child: Icon(Icons.check_circle, size: 16),
           ),
           const SizedBox(width: 8),
-          Expanded(child: Text(text)),
+          Expanded(child: Text(text)), // restored text
         ],
       ),
     );
