@@ -2,250 +2,550 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-class AfterOutageGame extends StatefulWidget {
-  const AfterOutageGame({super.key});
+class AfterOutageChoicesPage extends StatefulWidget {
+  const AfterOutageChoicesPage({super.key});
 
   @override
-  State<AfterOutageGame> createState() => _AfterOutageGameState();
+  State<AfterOutageChoicesPage> createState() => _AfterOutageChoicesPageState();
 }
 
-class _AfterOutageGameState extends State<AfterOutageGame>
+class _AfterOutageChoicesPageState extends State<AfterOutageChoicesPage>
     with TickerProviderStateMixin {
-  late final AnimationController _shake;
-  late final Animation<double> _shakeAnim;
+  // Shake animation for wrong choice feedback
+  late final AnimationController _shakeCtl;
+  late final Animation<double> _shake;
 
-  final Random _rand = Random(); // for shuffling
-  String _currentNodeId = 'start';
+  // Routing / state
+  String _current = 'q1_emergency';
   bool _isGameOver = false;
   bool _isVictory = false;
-  final List<String> _trail = [];
+  bool _isSafeWait = false;
 
-  final Map<String, List<_Option>> _shuffledOptions = {};
+  // Track completed common modules to skip when merging ON path
+  final Set<String> _commonCompleted = <String>{}; // 'downed', 'survey', 'flooding'
+  bool _cameFromOff = false;
 
-  final Map<String, _Node> _nodes = {
-    // 1) Emergencies / 911
-    'start': _Node(
-      id: 'start',
+  final Random _rng = Random();
+  final Map<String, List<_Option>> _shuffled = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeCtl =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
+    _shake = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: -10), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 10, end: -8), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -8, end: 6), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 6, end: 0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _shakeCtl, curve: Curves.easeOut));
+
+    _prepareShuffled(_current);
+  }
+
+  @override
+  void dispose() {
+    _shakeCtl.dispose();
+    super.dispose();
+  }
+
+  // ---------------------- NODE DATA ----------------------
+
+  late final Map<String, _Node> _nodes = {
+    // Q1: Emergency?
+    'q1_emergency': _Node(
+      id: 'q1_emergency',
       title: 'After the Storm',
-      prompt:
-          'First step after a storm-related outage: what should you do before anything else?',
+      prompt: 'Is there an emergency?',
       options: [
         _Option(
-          label:
-              'Check for emergencies; call 911 if there’s injury, fire, gas, or sparking',
-          explanation:
-              'Emergencies come first. Make the call and keep everyone safe.',
-          nextId: 'testLight',
+          label: 'Yes',
+          explanation: 'Handle emergencies first to keep everyone safe.',
           correct: true,
+          nextId: 'q2_emergency_action',
+        ),
+        _Option(
+          label: 'No',
+          explanation: 'Proceed to confirm your power status.',
+          correct: true,
+          nextId: 'q3_test_power',
+        ),
+      ],
+    ),
+
+    // Q2 (only if Q1: Yes)
+    'q2_emergency_action': _Node(
+      id: 'q2_emergency_action',
+      title: 'Emergency Response',
+      prompt: 'If there is an emergency, what should you do?',
+      options: [
+        _Option(
+          label: 'Call 911 if there’s injury, fire, gas, or sparking',
+          explanation: 'Emergencies first—call 911 immediately.',
+          correct: true,
+          nextId: 'q3_test_power',
         ),
         _Option(
           label: 'Flip every breaker to ON right away',
-          explanation:
-              'Bad order—safety checks must come first, not panel flipping.',
-          nextId: 'fail',
+          explanation: 'Unsafe—electrical panels can wait until it’s safe.',
           correct: false,
+          nextId: 'fail',
         ),
         _Option(
           label: 'Light candles and start inspecting the attic',
-          explanation: 'Avoid open flames. Use flashlights/battery lanterns.',
-          nextId: 'fail',
+          explanation: 'Avoid open flames after storms—use battery lights.',
           correct: false,
+          nextId: 'fail',
         ),
       ],
     ),
 
-    // 2) Verify power is really back
-    'testLight': _Node(
-      id: 'testLight',
-      title: 'Is Power Actually Back?',
+    // Q3: How to test power?
+    'q3_test_power': _Node(
+      id: 'q3_test_power',
+      title: 'Confirm Power Safely',
       prompt: 'What’s the safest way to confirm the power is truly restored?',
       options: [
         _Option(
-          label: 'Turn on a single light or plug in a small lamp to test',
-          explanation:
-              'Use a small, simple load to verify service before doing more.',
-          nextId: 'downedLines',
+          label: 'Turn on a single light or plug in a small lamp',
+          explanation: 'Use a small load to test—safe and simple.',
           correct: true,
+          nextId: 'q4_power_back',
         ),
         _Option(
           label: 'Turn on all appliances at once to “stress test”',
-          explanation:
-              'Demand spikes and surges can damage electronics and circuits.',
-          nextId: 'fail',
+          explanation: 'Large sudden loads can cause surges or damage.',
           correct: false,
+          nextId: 'fail',
         ),
         _Option(
           label: 'Reset the main breaker repeatedly until lights stay on',
-          explanation: 'Never force or “pump” breakers.',
-          nextId: 'fail',
+          explanation: 'Never “pump” breakers—this is unsafe.',
           correct: false,
+          nextId: 'fail',
         ),
       ],
     ),
 
-    // 3) Assume all wires live -> report downed lines
-    'downedLines': _Node(
-      id: 'downedLines',
-      title: 'Downed Lines',
-      prompt:
-          'Outside you spot a line on the ground across the street. What’s the correct move?',
+    // Q4: Is power back on?
+    'q4_power_back': _Node(
+      id: 'q4_power_back',
+      title: 'Power Status',
+      prompt: 'Is the power back on?',
       options: [
         _Option(
-          label: 'Assume it’s live. Stay away and report it to the utility',
-          explanation:
-              'Treat all downed lines as energized. Keep others back and report.',
-          nextId: 'electricalDamage',
+          label: 'Yes',
+          explanation: 'Proceed with post-restoration steps.',
           correct: true,
+          nextId: 'on_router', // dynamic router for ON path
+        ),
+        _Option(
+          label: 'No',
+          explanation: 'Follow safe steps while power is still out.',
+          correct: true,
+          nextId: 'off1_lighting',
+        ),
+      ],
+    ),
+
+    // -------------------- POWER OFF PATH --------------------
+
+    // OFF1: Lighting
+    'off1_lighting': _Node(
+      id: 'off1_lighting',
+      title: 'Power Still Out',
+      prompt: 'Power is still out. What should you use as a lighting source?',
+      options: [
+        _Option(
+          label: 'Flashlights or battery lanterns',
+          explanation: 'Battery lights reduce fire risk.',
+          correct: true,
+          nextId: 'off2_downed',
+        ),
+        _Option(
+          label: 'Candles or open flames',
+          explanation: 'Candles raise fire risk during outages.',
+          correct: false,
+          nextId: 'fail',
+        ),
+      ],
+    ),
+
+    // OFF2: Downed lines (common)
+    'off2_downed': _Node(
+      id: 'off2_downed',
+      title: 'Downed Lines',
+      prompt: 'Outside you see a line on the ground. What should you do?',
+      options: [
+        _Option(
+          label: 'Assume it’s live, stay away, and report it to the utility',
+          explanation: 'Treat all downed lines as energized.',
+          correct: true,
+          nextId: 'off3_survey',
+          onChoose: () => _markCommonDone('downed'),
         ),
         _Option(
           label: 'Move it with a dry stick so cars can pass',
-          explanation: 'Never touch or move a downed line—ever.',
-          nextId: 'fail',
+          explanation: 'Never touch or move a downed line.',
           correct: false,
+          nextId: 'fail',
         ),
         _Option(
           label: 'Drive over it carefully; tires are rubber',
-          explanation: 'Extremely dangerous; avoid the area completely.',
-          nextId: 'fail',
+          explanation: 'Avoid the area completely—extremely dangerous.',
           correct: false,
+          nextId: 'fail',
         ),
       ],
     ),
 
-    // 4) Electrical damage / smoke; breakers
-    'electricalDamage': _Node(
-      id: 'electricalDamage',
+    // OFF3: Survey damage (common)
+    'off3_survey': _Node(
+      id: 'off3_survey',
+      title: 'Survey Damage',
+      prompt: 'What kind of damage should you check your property for?',
+      options: [
+        _Option(
+          label: 'Fallen trees/branches, broken windows, leaks, water inside',
+          explanation: 'Spot hazards early so you can keep clear.',
+          correct: true,
+          nextId: 'off4_flooding',
+          onChoose: () => _markCommonDone('survey'),
+        ),
+      ],
+    ),
+
+    // OFF4: Flooding + basement (common)
+    'off4_flooding': _Node(
+      id: 'off4_flooding',
+      title: 'Flooding & Electrical',
+      prompt:
+          'If your basement is flooded and the circuit breaker is there, what should you do?',
+      options: [
+        _Option(
+          label: 'Stay out of the water and call the utility or an electrician',
+          explanation: 'Water + electricity is deadly—get a pro.',
+          correct: true,
+          nextId: 'off5_fridge',
+          onChoose: () => _markCommonDone('flooding'),
+        ),
+        _Option(
+          label: 'Enter the water to reset the breaker',
+          explanation: 'Never enter water around electrical equipment.',
+          correct: false,
+          nextId: 'fail',
+        ),
+      ],
+    ),
+
+    // OFF5: Fridge/Freezer closed
+    'off5_fridge': _Node(
+      id: 'off5_fridge',
+      title: 'Refrigeration',
+      prompt:
+          'How should you handle your fridge and freezer while power is still out?',
+      options: [
+        _Option(
+          label: 'Keep the doors shut to preserve cold',
+          explanation: 'Keeps food safe longer.',
+          correct: true,
+          nextId: 'off6_generator',
+        ),
+        _Option(
+          label: 'Open them often to check food',
+          explanation: 'Opening warms food quickly—avoid.',
+          correct: false,
+          nextId: 'fail',
+        ),
+      ],
+    ),
+
+    // OFF6: Generator safety
+    'off6_generator': _Node(
+      id: 'off6_generator',
+      title: 'Generator Safety',
+      prompt: 'What’s the safe way to run a generator?',
+      options: [
+        _Option(
+          label: 'Outside, at least 20 ft from doors and windows',
+          explanation: 'Distance reduces carbon monoxide risk.',
+          correct: true,
+          nextId: 'off7_battery',
+        ),
+        _Option(
+          label: 'Inside the garage with the door cracked',
+          explanation: 'CO can build up quickly—never indoors.',
+          correct: false,
+          nextId: 'fail',
+        ),
+        _Option(
+          label: 'Right next to a window for convenience',
+          explanation: 'Exhaust can enter the home—keep it far away.',
+          correct: false,
+          nextId: 'fail',
+        ),
+      ],
+    ),
+
+    // OFF7: Battery conservation
+    'off7_battery': _Node(
+      id: 'off7_battery',
+      title: 'Battery Conservation',
+      prompt:
+          'How should you manage phones and batteries during an extended outage?',
+      options: [
+        _Option(
+          label:
+              'Conserve power, use low-power mode, keep one phone off as backup',
+          explanation: 'Stretch limited power for updates and calls.',
+          correct: true,
+          nextId: 'off8_report',
+        ),
+        _Option(
+          label: 'Stream nonstop or run all devices',
+          explanation: 'Wastes power you may need later.',
+          correct: false,
+          nextId: 'fail',
+        ),
+      ],
+    ),
+
+    // OFF8: Report once
+    'off8_report': _Node(
+      id: 'off8_report',
+      title: 'Outage Reporting',
+      prompt: 'How often should you report your outage?',
+      options: [
+        _Option(
+          label: 'Report once via the utility app/site or phone',
+          explanation: 'Multiple reports don’t speed repairs.',
+          correct: true,
+          nextId: 'off_recheck',
+        ),
+        _Option(
+          label: 'Report repeatedly to get priority',
+          explanation: 'Spam adds noise—report once.',
+          correct: false,
+          nextId: 'fail',
+        ),
+      ],
+    ),
+
+    // OFF Recheck power
+    'off_recheck': _Node(
+      id: 'off_recheck',
+      title: 'Power Recheck',
+      prompt: 'Is the power back on now?',
+      options: [
+        _Option(
+          label: 'Yes',
+          explanation: 'Great—proceed safely with restoration steps.',
+          correct: true,
+          nextId: 'on_router_from_off', // will skip common modules already done
+        ),
+        _Option(
+          label: 'No',
+          explanation:
+              'Hang tight. Stay alert, conserve battery, and review outage tips.',
+          correct: true,
+          nextId: 'safe',
+        ),
+      ],
+    ),
+
+    // -------------------- POWER ON PATH --------------------
+
+    // ON1: Downed lines (common, may skip)
+    'on1_downed': _Node(
+      id: 'on1_downed',
+      title: 'Downed Lines',
+      prompt: 'You see a line on the ground outside. What should you do?',
+      options: [
+        _Option(
+          label: 'Assume it’s live, stay away, and report it',
+          explanation: 'Treat all downed lines as energized.',
+          correct: true,
+          nextId: 'on_router',
+          onChoose: () => _markCommonDone('downed'),
+        ),
+        _Option(
+          label: 'Move it with a dry stick',
+          explanation: 'Never touch or move a downed line.',
+          correct: false,
+          nextId: 'fail',
+        ),
+        _Option(
+          label: 'Drive over it carefully',
+          explanation: 'Extremely dangerous—avoid the area.',
+          correct: false,
+          nextId: 'fail',
+        ),
+      ],
+    ),
+
+    // ON2: Survey damage (common, may skip)
+    'on2_survey': _Node(
+      id: 'on2_survey',
+      title: 'Survey Damage',
+      prompt: 'What damage should you look for after a storm?',
+      options: [
+        _Option(
+          label: 'Trees, branches, broken windows, leaks, flooding',
+          explanation: 'Identify hazards so you can keep clear.',
+          correct: true,
+          nextId: 'on_router',
+          onChoose: () => _markCommonDone('survey'),
+        ),
+      ],
+    ),
+
+    // ON3: Flooding + basement (common, may skip)
+    'on3_flooding': _Node(
+      id: 'on3_flooding',
+      title: 'Flooding & Electrical',
+      prompt:
+          'If your basement is flooded and the breaker is located there, what should you do?',
+      options: [
+        _Option(
+          label: 'Stay out of water and call the utility/electrician',
+          explanation: 'Water + electricity is deadly—get a pro.',
+          correct: true,
+          nextId: 'on_router',
+          onChoose: () => _markCommonDone('flooding'),
+        ),
+        _Option(
+          label: 'Enter water to reset the breaker',
+          explanation: 'Never enter water around electrical equipment.',
+          correct: false,
+          nextId: 'fail',
+        ),
+      ],
+    ),
+
+    // ON4: Electrical check (post-restoration)
+    'on4_electrical': _Node(
+      id: 'on4_electrical',
       title: 'Electrical Check',
-      prompt:
-          'Indoors, what’s the right approach to electrical safety after restoration?',
+      prompt: 'Indoors, how should you handle electrical safety after restoration?',
       options: [
         _Option(
           label:
-              'Check for damage or smoke smells; reset a tripped breaker once—if it trips again, call an electrician',
-          explanation:
-              'One safe reset is OK. Repeated trips or burning smells = stop and call a pro.',
-          nextId: 'foodSafety',
+              'If a breaker trips, reset it once. If it trips again or you smell smoke, call an electrician',
+          explanation: 'One safe reset is OK—repeated trips need a pro.',
           correct: true,
+          nextId: 'on5_powerup',
         ),
         _Option(
-          label: 'Hold a breaker ON with tape if it keeps tripping',
+          label: 'Hold the breaker ON with tape',
           explanation: 'Breakers protect against fire—never bypass them.',
-          nextId: 'fail',
           correct: false,
+          nextId: 'fail',
         ),
         _Option(
-          label: 'Ignore a faint burning smell; it will clear up',
+          label: 'Ignore a faint burning smell',
           explanation: 'Investigate and call an electrician if in doubt.',
-          nextId: 'fail',
           correct: false,
+          nextId: 'fail',
         ),
       ],
     ),
 
-    // 5) Food safety
-    'foodSafety': _Node(
-      id: 'foodSafety',
-      title: 'Food Safety',
-      prompt:
-          'The outage lasted a while. What’s the safest way to handle perishable food?',
-      options: [
-        _Option(
-          label:
-              'Discard perishable food above 40°F for 2+ hours, or if it smells/looks bad',
-          explanation:
-              'When in doubt, throw it out. Don’t risk foodborne illness.',
-          nextId: 'powerUp',
-          correct: true,
-        ),
-        _Option(
-          label: 'Taste it to check if it’s still good',
-          explanation: 'You can’t taste safety—this is risky.',
-          nextId: 'fail',
-          correct: false,
-        ),
-        _Option(
-          label: 'Refreeze everything; cold will kill bacteria',
-          explanation:
-              'Refreezing doesn’t make unsafe food safe again.',
-          nextId: 'fail',
-          correct: false,
-        ),
-      ],
-    ),
-
-    // 6) Power electronics carefully + surge protection; reset outlets/clocks
-    'powerUp': _Node(
-      id: 'powerUp',
+    // ON5: Powering back up safely
+    'on5_powerup': _Node(
+      id: 'on5_powerup',
       title: 'Powering Back Up',
       prompt:
-          'How should you bring the home back online and protect electronics?',
+          'How should you bring your home back online and protect electronics?',
       options: [
         _Option(
           label:
-              'Reset outlets/clocks; power devices back on gradually using surge protection',
-          explanation:
-              'Bring loads up slowly and protect sensitive gear from surges.',
-          nextId: 'document',
+              'Reset outlets/clocks; power devices on gradually with surge protection',
+          explanation: 'Bring loads up slowly and protect sensitive gear.',
           correct: true,
+          nextId: 'on6_food',
         ),
         _Option(
-          label: 'Turn on everything at once to get back to normal faster',
-          explanation: 'Big, sudden loads can cause surges or new trips.',
-          nextId: 'fail',
+          label: 'Turn everything on at once',
+          explanation: 'Sudden load spikes can cause surges and trips.',
           correct: false,
+          nextId: 'fail',
         ),
         _Option(
-          label: 'Skip surge protection; the danger ends when power returns',
-          explanation:
-              'Post-restoration flickers/surges are common—use protection.',
-          nextId: 'fail',
+          label: 'Skip surge protection',
+          explanation: 'Post-restoration surges are common—use protection.',
           correct: false,
+          nextId: 'fail',
         ),
       ],
     ),
 
-    // 7) Document damage before cleanup -> insurance
-    'document': _Node(
-      id: 'document',
+    // ON6: Food safety
+    'on6_food': _Node(
+      id: 'on6_food',
+      title: 'Food Safety',
+      prompt: 'What’s the safe rule for food after an outage?',
+      options: [
+        _Option(
+          label: 'Discard perishable food above 40°F for 2+ hours or if spoiled',
+          explanation: 'When in doubt, throw it out.',
+          correct: true,
+          nextId: 'on7_document',
+        ),
+        _Option(
+          label: 'Taste to check if it’s safe',
+          explanation: 'You can’t taste safety—this is risky.',
+          correct: false,
+          nextId: 'fail',
+        ),
+        _Option(
+          label: 'Refreeze to “kill bacteria”',
+          explanation: 'Refreezing doesn’t make unsafe food safe.',
+          correct: false,
+          nextId: 'fail',
+        ),
+      ],
+    ),
+
+    // ON7: Document & claims
+    'on7_document': _Node(
+      id: 'on7_document',
       title: 'Document & Claims',
-      prompt:
-          'Before cleanup, what’s the most helpful step for claims and follow-up?',
+      prompt: 'Before cleanup, what’s the best step for claims and follow-up?',
       options: [
         _Option(
           label:
               'Photograph/video any damage first; contact utility/insurance as needed',
-          explanation:
-              'Documentation helps with repairs and claims.',
-          nextId: 'restock',
+          explanation: 'Documentation helps with repairs and claims.',
           correct: true,
+          nextId: 'on8_prepare',
         ),
         _Option(
           label: 'Start cleaning immediately; documentation can wait',
-          explanation: 'Evidence may be lost—document before cleanup.',
-          nextId: 'fail',
+          explanation: 'Evidence may be lost—document first.',
           correct: false,
+          nextId: 'fail',
         ),
       ],
     ),
 
-    // 8) Restock, review, fuel → victory
-    'restock': _Node(
-      id: 'restock',
+    // ON8: Prepare
+    'on8_prepare': _Node(
+      id: 'on8_prepare',
       title: 'Prepare for Next Time',
-      prompt:
-          'What’s a smart final step once everything is safe and stable?',
+      prompt: 'Once everything is safe, what’s a smart final step?',
       options: [
         _Option(
           label: 'Restock supplies & fuel; review what worked and what didn’t',
-          explanation: 'Close the loop so you’re better prepared next time.',
-          nextId: 'victory',
+          explanation: 'Close the loop so you’re better prepared.',
           correct: true,
+          nextId: 'victory',
         ),
         _Option(
           label: 'Do nothing—another outage is unlikely soon',
           explanation: 'Preparedness matters—don’t skip this step.',
-          nextId: 'fail',
           correct: false,
+          nextId: 'fail',
         ),
       ],
     ),
@@ -255,7 +555,13 @@ class _AfterOutageGameState extends State<AfterOutageGame>
       id: 'victory',
       title: 'All Set',
       message:
-          'Great job! You followed the correct post-outage sequence safely and smartly.',
+          'Great job! You handled the post-outage sequence safely and smartly.',
+    ),
+    'safe': _Node.safe(
+      id: 'safe',
+      title: 'Safe While You Wait',
+      message:
+          'Hang tight. Stay alert, conserve battery, and review outage tips until power is restored.',
     ),
     'fail': _Node.fail(
       id: 'fail',
@@ -265,122 +571,107 @@ class _AfterOutageGameState extends State<AfterOutageGame>
     ),
   };
 
-  @override
-  void initState() {
-    super.initState();
-    _shake = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _shakeAnim = Tween<double>(begin: 0, end: 12)
-        .chain(CurveTween(curve: Curves.easeOut))
-        .animate(_shake);
+  // ---------------------- HELPERS ----------------------
 
-    // Prepare shuffled options for the starting node
-    _prepareShuffled('start');
-  }
-
-  @override
-  void dispose() {
-    _shake.dispose();
-    super.dispose();
-  }
+  void _markCommonDone(String key) => _commonCompleted.add(key);
 
   void _prepareShuffled(String nodeId) {
     final node = _nodes[nodeId]!;
     if (node.type != _NodeType.normal) return;
-    _shuffledOptions[nodeId] = [...node.options]..shuffle(_rand);
+    _shuffled[nodeId] = [...node.options]..shuffle(_rng);
   }
 
   List<_Option> _optionsFor(String nodeId) {
-    return _shuffledOptions[nodeId] ?? const <_Option>[];
+    return _shuffled[nodeId] ?? const <_Option>[];
   }
 
-  void _reset() {
+  void _restart() {
     setState(() {
-      _currentNodeId = 'start';
+      _current = 'q1_emergency';
       _isGameOver = false;
       _isVictory = false;
-      _trail.clear();
-      _shuffledOptions.clear(); 
-      _prepareShuffled('start'); 
+      _isSafeWait = false;
+      _commonCompleted.clear();
+      _cameFromOff = false;
+      _shuffled.clear();
+      _prepareShuffled(_current);
     });
   }
 
-  void _fail() async {
-    HapticFeedback.heavyImpact();
-    await _shake.forward();
-    _shake.reverse();
-    setState(() {
-      _currentNodeId = 'fail';
-      _isGameOver = true;
-      _isVictory = false;
-    });
+  // Router logic when entering ON path
+  String _resolveOnRoute() {
+    if (!_commonCompleted.contains('downed')) return 'on1_downed';
+    if (!_commonCompleted.contains('survey')) return 'on2_survey';
+    if (!_commonCompleted.contains('flooding')) return 'on3_flooding';
+    return 'on4_electrical';
   }
 
-  void _victory() {
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _currentNodeId = 'victory';
-      _isVictory = true;
-      _isGameOver = false;
-    });
-  }
-
-  void _handleChoice(_Option option) {
-    final node = _nodes[_currentNodeId]!;
-    if (!option.correct) {
-      _fail();
+  void _goTo(String nextId) {
+    // Handle transparent router nodes
+    if (nextId == 'on_router') {
+      final target = _resolveOnRoute();
+      setState(() {
+        _current = target;
+        _prepareShuffled(_current);
+      });
+      return;
+    }
+    if (nextId == 'on_router_from_off') {
+      final target = _resolveOnRoute();
+      setState(() {
+        _cameFromOff = true; // informational only
+        _current = target;
+        _prepareShuffled(_current);
+      });
       return;
     }
 
-    final nextId = option.nextId;
-    if (nextId == 'fail') {
-      _fail();
-      return;
-    }
-    if (nextId == 'victory') {
-      _trail.add(node.id);
-      _victory();
-      return;
-    }
-
+    final isTerminal = _nodes[nextId]!.type != _NodeType.normal;
     setState(() {
-      _trail.add(node.id);
-      _currentNodeId = nextId;
-      _prepareShuffled(_currentNodeId); 
+      _current = nextId;
+      if (!isTerminal) _prepareShuffled(_current);
+      _isVictory = nextId == 'victory';
+      _isSafeWait = nextId == 'safe';
+      _isGameOver = nextId == 'fail';
     });
   }
+
+  Future<void> _handleChoice(_Option opt) async {
+    opt.onChoose?.call();
+    if (!opt.correct) {
+      HapticFeedback.mediumImpact();
+      await _shakeCtl.forward();
+      _shakeCtl.reverse();
+      _goTo(opt.nextId);
+      return;
+    }
+    HapticFeedback.selectionClick();
+    _goTo(opt.nextId);
+  }
+
+  // ---------------------- UI ----------------------
 
   @override
   Widget build(BuildContext context) {
-    final node = _nodes[_currentNodeId]!;
+    final node = _nodes[_current]!;
     final isTerminal = node.type != _NodeType.normal;
-    final options =
-        isTerminal ? const <_Option>[] : _optionsFor(_currentNodeId);
+    final options = isTerminal ? const <_Option>[] : _optionsFor(_current);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('After Outage'),
+        title: const Text('After the Storm — Choices'),
         centerTitle: true,
       ),
       body: AnimatedBuilder(
-        animation: _shakeAnim,
+        animation: _shake,
         builder: (context, child) {
-          final dx = _isGameOver
-              ? 0.0
-              : (_shakeAnim.value *
-                  (_shake.status == AnimationStatus.forward ? 1 : 0));
-          return Transform.translate(offset: Offset(dx, 0), child: child);
+          return Transform.translate(offset: Offset(_shake.value, 0), child: child);
         },
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                // 7 steps before victory
-                _ProgressDots(total: 7, done: _trail.length),
-                const SizedBox(height: 12),
                 _HeaderCard(
                   title: node.title,
                   terminal: isTerminal,
@@ -388,14 +679,14 @@ class _AfterOutageGameState extends State<AfterOutageGame>
                 const SizedBox(height: 12),
                 Expanded(
                   child: _PromptCard(
-                    prompt: node.type == _NodeType.normal
-                        ? node.prompt
-                        : (node.message ?? ''),
+                    prompt: node.type == _NodeType.normal ? node.prompt : (node.message ?? ''),
                     options: options,
                     isTerminal: isTerminal,
                     onSelect: _handleChoice,
-                    onRestart: _reset,
+                    onRestart: _restart,
+                    onClose: () => Navigator.of(context).maybePop(),
                     victory: _isVictory,
+                    safe: _isSafeWait,
                   ),
                 ),
               ],
@@ -407,7 +698,7 @@ class _AfterOutageGameState extends State<AfterOutageGame>
   }
 }
 
-// UI
+// ---------------------- UI PIECES ----------------------
 
 class _HeaderCard extends StatelessWidget {
   final String title;
@@ -423,7 +714,12 @@ class _HeaderCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Icon(terminal ? Icons.emoji_events : Icons.bolt, size: 24),
+            Icon(
+              terminal
+                  ? Icons.emoji_events
+                  : Icons.bolt,
+              size: 24,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -447,7 +743,9 @@ class _PromptCard extends StatelessWidget {
   final bool isTerminal;
   final void Function(_Option) onSelect;
   final VoidCallback onRestart;
+  final VoidCallback onClose;
   final bool victory;
+  final bool safe;
 
   const _PromptCard({
     required this.prompt,
@@ -455,12 +753,21 @@ class _PromptCard extends StatelessWidget {
     required this.isTerminal,
     required this.onSelect,
     required this.onRestart,
+    required this.onClose,
     required this.victory,
+    required this.safe,
   });
 
   @override
   Widget build(BuildContext context) {
     if (isTerminal) {
+      final icon = victory
+          ? Icons.emoji_events
+          : (safe ? Icons.info_outline : Icons.warning_amber_rounded);
+      final color = victory
+          ? Colors.green
+          : (safe ? Colors.blue : Colors.red);
+
       return Card(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -469,10 +776,7 @@ class _PromptCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                victory ? Icons.emoji_events : Icons.warning_amber_rounded,
-                size: 64,
-              ),
+              Icon(icon, size: 64, color: color),
               const SizedBox(height: 12),
               Text(
                 prompt,
@@ -480,7 +784,15 @@ class _PromptCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 20),
-              FilledButton(onPressed: onRestart, child: const Text('Play Again')),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  FilledButton(onPressed: onRestart, child: const Text('Play Again')),
+                  OutlinedButton(onPressed: onClose, child: const Text('Close')),
+                ],
+              ),
             ],
           ),
         ),
@@ -520,7 +832,7 @@ class _PromptCard extends StatelessWidget {
                 ),
                 const Icon(Icons.route),
               ],
-            )
+            ),
           ],
         ),
       ),
@@ -581,43 +893,17 @@ class _ChoiceTileState extends State<_ChoiceTile> {
   }
 }
 
-class _ProgressDots extends StatelessWidget {
-  final int total;
-  final int done;
-  const _ProgressDots({required this.total, required this.done});
+// ---------------------- MODELS ----------------------
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(total, (i) {
-        final active = i < done;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: active ? 12 : 8,
-          height: active ? 12 : 8,
-          decoration: BoxDecoration(
-            color: active ? theme.primary : theme.outlineVariant,
-            shape: BoxShape.circle,
-          ),
-        );
-      }),
-    );
-  }
-}
-
-
-enum _NodeType { normal, victory, fail }
+enum _NodeType { normal, victory, fail, safe }
 
 class _Node {
   final String id;
   final String title;
-  final String prompt;
+  final String prompt; // used for normal nodes
   final List<_Option> options;
   final _NodeType type;
-  final String? message;
+  final String? message; // used for terminal nodes
 
   const _Node({
     required this.id,
@@ -642,18 +928,28 @@ class _Node {
   })  : prompt = '',
         options = const [],
         type = _NodeType.fail;
+
+  const _Node.safe({
+    required this.id,
+    required this.title,
+    required this.message,
+  })  : prompt = '',
+        options = const [],
+        type = _NodeType.safe;
 }
 
 class _Option {
   final String label;
-  final String nextId;
   final String explanation;
   final bool correct;
+  final String nextId;
+  final VoidCallback? onChoose;
 
   const _Option({
     required this.label,
-    required this.nextId,
     required this.explanation,
     required this.correct,
+    required this.nextId,
+    this.onChoose,
   });
 }
