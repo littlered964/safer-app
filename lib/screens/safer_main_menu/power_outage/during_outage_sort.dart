@@ -12,7 +12,8 @@ class DuringOutageSortingPage extends StatefulWidget {
   State<DuringOutageSortingPage> createState() => _DuringOutageSortingPageState();
 }
 
-enum _Difficulty { easy, medium, hard }
+// 4 speed tiers
+enum _Difficulty { slowest, slow, fast, fastest }
 
 class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
     with TickerProviderStateMixin {
@@ -22,20 +23,24 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
   final Random _rng = Random();
 
   final double _spawnEverySec = 1.8;
-  double _fallSpeed = 140; // default = medium
+  double _fallSpeed = 140; // now used as "rise" speed after inversion
   final int _targetSorted = 15;
   final int _maxMistakes = 3;
 
-  _Difficulty _difficulty = _Difficulty.medium;
+  // default tier ~"fast" comparable to prior medium
+  _Difficulty _difficulty = _Difficulty.fast;
 
+  // tuned speeds (px/s). "slowest" is very gentle.
   double _speedFor(_Difficulty d) {
     switch (d) {
-      case _Difficulty.easy:
-        return 95;
-      case _Difficulty.medium:
-        return 140;
-      case _Difficulty.hard:
-        return 190;
+      case _Difficulty.slowest:
+        return 55;   // very easy (elder-friendly)
+      case _Difficulty.slow:
+        return 95;   // easy
+      case _Difficulty.fast:
+        return 140;  // medium-ish
+      case _Difficulty.fastest:
+        return 220;  // hard
     }
   }
 
@@ -75,8 +80,8 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
   // Confetti (on win)
   late final ConfettiController _confettiCtl;
 
-  // Shorter bin area so playfield is taller (bins still bottom-anchored)
-  static const double _binAreaHeight = 120; // ~half of original visual height
+  // Bins at TOP (inverted)
+  static const double _binAreaHeight = 120;
 
   @override
   void initState() {
@@ -163,12 +168,14 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
     }
     _prevElapsed = elapsed;
 
+    // rise upward (y decreases in playfield-local coordinates)
     for (final f in _fallers) {
-      f.y += _fallSpeed * dtSec;
+      f.y -= _fallSpeed * dtSec;
     }
 
+    // missed only when TOP hits the finish boundary (instant remove)
     _fallers.removeWhere((f) {
-      if (f.y > f.groundY) {
+      if (f.y <= f.groundY) { // groundY == 0 (top edge of playfield)
         _playSfx('incorrect.aiff');
         _hapticBad();
         _registerMistake("Missed: ${f.data.label}\n${f.data.tip}");
@@ -204,7 +211,6 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
       _showSnack("${data.tip}  (+100)", Colors.green, milliseconds: 2200);
       _removeOne(data);
     } else {
-      // wrong -> shake the item briefly, then remove
       _playSfx('incorrect.aiff');
       _hapticBad();
       setState(() => _shaking.add(data));
@@ -217,11 +223,9 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
     _checkEnd();
   }
 
-  // longer duration for readability
   void _registerMistake(String msg) {
     _mistakes += 1;
     _showSnack(msg, Colors.orange, milliseconds: 2200);
-    // ensure game ends immediately if mistakes hit the limit due to drops
     _checkEnd();
   }
 
@@ -234,7 +238,6 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
       );
     } else if (_sorted >= _targetSorted) {
       _running = false;
-      // WIN sound + haptic + confetti
       _playSfx('win.wav');
       _hapticWin();
       _confettiCtl.play();
@@ -255,15 +258,14 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // close results dialog
-              _restart();                   // restart stays on game page
+              Navigator.of(context).pop();
+              _restart();
             },
             child: const Text("Play again"),
           ),
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();  // close results dialog
-              // leave the game page (return to Power Outage main)
+              Navigator.of(context).pop();
               Navigator.of(context).maybePop();
             },
             child: const Text("Close"),
@@ -280,16 +282,14 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
       _mistakes = 0;
       _sorted = 0;
       _timeSinceSpawn = 0;
-      _prevElapsed = null; // reset delta timing
-      _running = true;     // Restart should NOT show intro again
+      _prevElapsed = null;
+      _running = true;
       _needsIntro = false;
       _shaking.clear();
-      // keep current difficulty; reset speed to it
       _fallSpeed = _speedFor(_difficulty);
     });
   }
 
-  // allow custom duration + floating behavior for multi-line tips
   void _showSnack(String msg, Color color, {int milliseconds = 1200}) {
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
@@ -303,16 +303,15 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
     );
   }
 
-  // Intro modal shown only once per page load
+  // intro chips reflect new 4-tier speeds
   void _showIntroModal() {
     showDialog(
       context: context,
-      barrierDismissible: false, // tap outside won't dismiss
+      barrierDismissible: false,
       builder: (dialogCtx) => WillPopScope(
-        // Hardware back should leave the game if intro is up
         onWillPop: () async {
-          Navigator.of(dialogCtx).pop();      // close intro
-          Navigator.of(context).maybePop();   // go back to main page
+          Navigator.of(dialogCtx).pop();
+          Navigator.of(context).maybePop();
           return false;
         },
         child: StatefulBuilder(
@@ -334,27 +333,35 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
                     spacing: 8,
                     children: [
                       ChoiceChip(
-                        label: const Text("Easy"),
-                        selected: _difficulty == _Difficulty.easy,
+                        label: const Text("Slowest"),
+                        selected: _difficulty == _Difficulty.slowest,
                         onSelected: (v) {
                           if (!v) return;
-                          setLocal(() => _difficulty = _Difficulty.easy);
+                          setLocal(() => _difficulty = _Difficulty.slowest);
                         },
                       ),
                       ChoiceChip(
-                        label: const Text("Medium"),
-                        selected: _difficulty == _Difficulty.medium,
+                        label: const Text("Slow"),
+                        selected: _difficulty == _Difficulty.slow,
                         onSelected: (v) {
                           if (!v) return;
-                          setLocal(() => _difficulty = _Difficulty.medium);
+                          setLocal(() => _difficulty = _Difficulty.slow);
                         },
                       ),
                       ChoiceChip(
-                        label: const Text("Hard"),
-                        selected: _difficulty == _Difficulty.hard,
+                        label: const Text("Fast"),
+                        selected: _difficulty == _Difficulty.fast,
                         onSelected: (v) {
                           if (!v) return;
-                          setLocal(() => _difficulty = _Difficulty.hard);
+                          setLocal(() => _difficulty = _Difficulty.fast);
+                        },
+                      ),
+                      ChoiceChip(
+                        label: const Text("Fastest"),
+                        selected: _difficulty == _Difficulty.fastest,
+                        onSelected: (v) {
+                          if (!v) return;
+                          setLocal(() => _difficulty = _Difficulty.fastest);
                         },
                       ),
                     ],
@@ -364,8 +371,8 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.of(dialogCtx).pop();    // close intro
-                    Navigator.of(context).maybePop(); // back to main page
+                    Navigator.of(dialogCtx).pop();
+                    Navigator.of(context).maybePop();
                   },
                   child: const Text("Back"),
                 ),
@@ -373,11 +380,10 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
                   icon: const Icon(Icons.play_arrow),
                   label: const Text("Play now!"),
                   onPressed: () {
-                    // apply selected difficulty speed
                     setState(() {
                       _fallSpeed = _speedFor(_difficulty);
                     });
-                    Navigator.of(dialogCtx).pop(); // close intro
+                    Navigator.of(dialogCtx).pop();
                     setState(() {
                       _running = true;
                       _needsIntro = false;
@@ -411,8 +417,8 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
             onPressed: () {
               setState(() {
                 _running = !_running;
-                _prevElapsed = null; // avoid big dt on resume
-                _needsIntro = false; // shouldn't show intro later
+                _prevElapsed = null;
+                _needsIntro = false;
               });
             },
             icon: Icon(_running ? Icons.pause_circle_filled : Icons.play_circle_fill),
@@ -431,51 +437,43 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF0F172A), // slate-900-ish
-              Color(0xFF1E293B), // slate-800-ish
+              Color(0xFF0F172A),
+              Color(0xFF1E293B),
             ],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // TOP HUD
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    _StatChip(icon: Icons.star, label: "Score", value: "$_score"),
-                    _StatChip(icon: Icons.done_all, label: "Sorted", value: "$_sorted/$_targetSorted"),
-                    _StatChip(icon: Icons.warning, label: "Mistakes", value: "$_mistakes/$_maxMistakes"),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // Playfield + bins
+              // Playfield first, HUD at bottom
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final w = constraints.maxWidth;
 
-                    // fixed card width, clamped to screen so it won't overflow
+                    // card size
                     final cardWidth = min(w * 0.75, 260.0);
                     const cardHeight = itemHeight;
 
-                    // Finish line y (top of bin area)
-                    final finishLineY = constraints.maxHeight - _binAreaHeight;
+                    // Visual finish line just under bins (outer coords)
+                    final finishLineY = _binAreaHeight;
 
-                    // Update fallers' threshold so tick can remove instantly
+                    // ----- PLAYFIELD (inner stack) -----
+                    final innerHeight = constraints.maxHeight - _binAreaHeight;
+                    // In playfield-local coords: top edge (finish boundary) is y=0.
+                    // Items should be visible until top hits 0, then removed instantly.
+
+                    // Prepare per-item thresholds in PLAYFIELD coordinates
                     for (final f in _fallers) {
-                      // Trigger when TOP passes (finishLineY - cardHeight) == bottom reaches line
-                      f.groundY = finishLineY - cardHeight;
+                      f.groundY = 0; // top edge of playfield
+                      // lazy init start position at bottom of playfield
+                      if (f.y < 0) {
+                        f.y = innerHeight - cardHeight;
+                      }
                     }
 
                     return Stack(
-                      clipBehavior: Clip.hardEdge, // ensure fallers don't draw over bins
+                      clipBehavior: Clip.hardEdge,
                       children: [
                         // Confetti overlay (top)
                         Align(
@@ -493,16 +491,20 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
                           ),
                         ),
 
-                        // FALLERS limited to area above finish line
+                        // RISING items limited to area BELOW bins
                         Positioned.fill(
-                          top: 0,
-                          bottom: _binAreaHeight,
+                          top: _binAreaHeight,
+                          bottom: 0,
                           child: Stack(
                             children: [
                               for (final f in _fallers)
                                 Positioned(
                                   left: (f.fracX * w - cardWidth / 2).clamp(0.0, w - cardWidth),
-                                  top: f.y.clamp(0, (constraints.maxHeight - _binAreaHeight) - cardHeight),
+                                  // clamp top between 0 (finish boundary) and bottom of playfield
+                                  top: f.y.clamp(
+                                    0.0,
+                                    innerHeight - cardHeight,
+                                  ),
                                   child: _DraggableCard(
                                     data: f.data,
                                     width: cardWidth,
@@ -518,7 +520,7 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
                           ),
                         ),
 
-                        // FINISH LINE right above bins
+                        // FINISH LINE just under bins (outer coords)
                         Positioned(
                           left: 0,
                           right: 0,
@@ -531,13 +533,13 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
                           ),
                         ),
 
-                        // Bins row (half height, bottom-anchored)
+                        // Bins row TOP-anchored
                         Align(
-                          alignment: Alignment.bottomCenter,
+                          alignment: Alignment.topCenter,
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                             child: SizedBox(
-                              height: _binAreaHeight - 24, // leave some padding top inside area
+                              height: _binAreaHeight - 24,
                               child: Row(
                                 children: [
                                   Expanded(
@@ -548,7 +550,7 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
                                       onAccept: (data) {
                                         _registerHit(data, true);
                                       },
-                                      binHeight: 80, // half-height
+                                      binHeight: 80,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -560,7 +562,7 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
                                       onAccept: (data) {
                                         _registerHit(data, false);
                                       },
-                                      binHeight: 80, // half-height
+                                      binHeight: 80,
                                     ),
                                   ),
                                 ],
@@ -571,6 +573,22 @@ class _DuringOutageSortingPageState extends State<DuringOutageSortingPage>
                       ],
                     );
                   },
+                ),
+              ),
+
+              // HUD at bottom
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _StatChip(icon: Icons.star, label: "Score", value: "$_score"),
+                    _StatChip(icon: Icons.done_all, label: "Sorted", value: "$_sorted/$_targetSorted"),
+                    _StatChip(icon: Icons.warning, label: "Mistakes", value: "$_mistakes/$_maxMistakes"),
+                  ],
                 ),
               ),
 
@@ -615,8 +633,8 @@ class _CardData {
 class _Faller {
   final _CardData data;
   final double fracX; // 0..1 of width
-  double y = -80; // starts above screen
-  double groundY = 600; // threshold for top; set from layout
+  double y = -80; // lazy-initialized to playfield bottom in build()
+  double groundY = 0; // threshold in PLAYFIELD coords (top edge)
   _Faller({required this.data, required this.fracX});
 }
 
@@ -751,8 +769,8 @@ class _SortBinState extends State<_SortBin> {
       builder: (context, candidates, rejects) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.all(8),            // tight padding to fit
-          height: widget.binHeight,                    // e.g., 80
+          padding: const EdgeInsets.all(8),
+          height: widget.binHeight,
           decoration: BoxDecoration(
             color: _hovered ? widget.color.withOpacity(0.12) : Colors.white.withOpacity(0.06),
             borderRadius: BorderRadius.circular(16),
@@ -764,11 +782,11 @@ class _SortBinState extends State<_SortBin> {
           child: LayoutBuilder(
             builder: (ctx, c) {
               return FittedBox(
-                fit: BoxFit.scaleDown,                 // prevents overflow by scaling down
+                fit: BoxFit.scaleDown,
                 alignment: Alignment.center,
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxWidth: c.maxWidth,              // keep full width
+                    maxWidth: c.maxWidth,
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -821,7 +839,7 @@ class _StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.12),        // translucent on dark bg
+        color: Colors.white.withOpacity(0.12),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white24, width: 1),
         boxShadow: const [
@@ -853,7 +871,6 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-/// Small rule row for the intro dialog
 class _RuleRow extends StatelessWidget {
   final String text;
   const _RuleRow({required this.text});
@@ -870,7 +887,7 @@ class _RuleRow extends StatelessWidget {
             child: Icon(Icons.check_circle, size: 16),
           ),
           const SizedBox(width: 8),
-          Expanded(child: Text(text)), // restored text
+          Expanded(child: Text(text)),
         ],
       ),
     );
