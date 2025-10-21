@@ -17,6 +17,7 @@ export 'safer_main_menu/stay_in_touch.dart';
 export 'safer_main_menu/power_outage/power_outage.dart';
 export 'safer_main_menu/power_outage/before_outage_quiz.dart';
 export 'safer_main_menu/power_outage/during_outage_sort.dart';
-export 'safer_main_menu/power_outage/after_outage_choices.dart';
+export 'safer_main_menu/power_outage/after_outage_game/after_outage_game_page.dart';
+export 'safer_main_menu/power_outage/after_outage_game/after_outage_adventure.dart';
 
 

@@ -40,7 +40,7 @@ class Routes {
   static const String powerOutage = "/powerOutage";
   static const beforeOutageQuiz = '/beforeOutageQuiz';
   static const duringOutageSort = '/duringOutageSort';
-  static const afterOutageChoices = '/afterOutageChoices';
+  static const String afterOutageGame = '/afterOutageGamePage';
 
   static const String termsOfUse = "/termsOfUse";
 
@@ -137,9 +137,9 @@ class Routes {
           builder: (context) => const DuringOutageSortingPage(),
         );
 
-      case Routes.afterOutageChoices:
+      case Routes.afterOutageGame:
         return MaterialPageRoute(
-          builder: (context) => const AfterOutageChoicesPage(),
+          builder: (context) => const AfterOutageGamePage(),
         );
 
 

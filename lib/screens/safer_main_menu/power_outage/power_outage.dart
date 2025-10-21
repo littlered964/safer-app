@@ -281,7 +281,7 @@ class PowerOutage extends StatelessWidget {
             ctaSubtitle:
                 'Make post-outage decisions (food safety, power-up sequence, generators).',
             onPlay: () =>
-                Navigator.pushNamed(context, Routes.afterOutageChoices),
+                Navigator.pushNamed(context, Routes.afterOutageGame),
           ),
           buildRestorationBlock(context),
           buildCtUtilitiesBlock(context),
