@@ -264,7 +264,7 @@ class PowerOutage extends StatelessWidget {
             ctaIcon: Icons.swap_horiz,
             ctaTitle: 'Play: Sort-It (During Outage)',
             ctaSubtitle:
-                'Swipe items into HELPFUL vs NON-HELPFUL (flashlights, candles, generators, etc.).',
+                'Swipe items into HELPFUL vs NON-HELPFUL.',
             onPlay: () =>
                 Navigator.pushNamed(context, Routes.duringOutageSort),
           ),
@@ -277,9 +277,9 @@ class PowerOutage extends StatelessWidget {
             link:
                 "https://www.eversource.com/content/residential/outages/storm-preparedness/after-a-storm",
             ctaIcon: Icons.bolt_outlined,
-            ctaTitle: 'Play: Recovery Choices',
+            ctaTitle: 'Play: Post-Outage Adventure',
             ctaSubtitle:
-                'Make post-outage decisions (food safety, power-up sequence, generators).',
+                'Safely make post-outage decisions!',
             onPlay: () =>
                 Navigator.pushNamed(context, Routes.afterOutageGame),
           ),

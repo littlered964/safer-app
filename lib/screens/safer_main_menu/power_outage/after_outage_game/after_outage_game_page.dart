@@ -15,8 +15,15 @@ class _AfterOutageGamePageState extends State<AfterOutageGamePage> {
   @override
   void initState() {
     super.initState();
-    _game = SaferAdventureGame();
+    _game = SaferAdventureGame(
+      onExitToMenu: () {
+        if (!mounted) return;
+        Navigator.of(context).pop();
+      },
+    );
+    _game.context = context;
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -39,9 +46,110 @@ class _AfterOutageGamePageState extends State<AfterOutageGamePage> {
               color: Theme.of(context).colorScheme.surface.withOpacity(0.86),
               border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
             ),
-            child: _DPad(
-              onDir: (dx, dy) => _game.setMobileDir(dx, dy),
-              onStop: () => _game.setMobileDir(0, 0),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Left reserved area with the room label (smaller + fixed width)
+                  ValueListenableBuilder<String>(
+                    valueListenable: _game.roomLabel,
+                    builder: (context, text, _) {
+                      const double sideReserve = 110; // was 140; smaller so D-pad gets more room
+                      return SizedBox(
+                        width: sideReserve,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                text, // room name
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      fontSize: 12,
+                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                              ValueListenableBuilder<String>(
+                                valueListenable: _game.bumpLabel,
+                                builder: (context, bump, _) => AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 120),
+                                  opacity: bump.isEmpty ? 0.0 : 1.0,
+                                  child: Text(
+                                    bump,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          fontSize: 11,
+                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  // Center: HARD guarantee a square for the D-pad so arrows fit
+                  Expanded(
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: 168, // same as container height so everything fits
+                        child: _DPad(
+                          onDir: (dx, dy) => _game.setMobileDir(dx, dy),
+                          onStop: () => _game.setMobileDir(0, 0),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Right-side: checklist toggle button (keeps total width symmetric with left)
+                  SizedBox(
+                    width: 110,
+                    child: Center(
+                      child: ValueListenableBuilder<int>(
+                        valueListenable: _game.checklistBadgeCount, // <-- from SaferAdventureGame
+                        builder: (context, count, _) {
+                          return Tooltip(
+                            message: 'Open checklist',
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _game.toggleChecklist(); // game will clear the badge when opening
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(48, 48),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    elevation: 2,
+                                  ),
+                                  child: const Text('☑', style: TextStyle(fontSize: 22)),
+                                ),
+
+                                // Notification bubble (top-right)
+                                if (count > 0)
+                                  const Positioned(
+                                    right: -2,
+                                    top: -2,
+                                    child: _ChecklistBadge(),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -49,6 +157,26 @@ class _AfterOutageGamePageState extends State<AfterOutageGamePage> {
     );
   }
 }
+
+class _ChecklistBadge extends StatelessWidget {
+  const _ChecklistBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    // Optional: pull the current count if you want a number.
+    // For a simple dot, ignore the count.
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.red,
+        shape: BoxShape.circle,
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
+      ),
+      constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+    );
+  }
+}
+
 
 class _DPad extends StatelessWidget {
   final void Function(double dx, double dy) onDir;
@@ -81,7 +209,7 @@ class _DPad extends StatelessWidget {
     // Large center stop button acts as a "dead zone"
     final stopButton = ElevatedButton(
       style: btnStyle.copyWith(
-        minimumSize: const WidgetStatePropertyAll(Size(92, 92)), // larger dead zone
+        minimumSize: const WidgetStatePropertyAll(Size(70, 70)), // larger dead zone
         backgroundColor: WidgetStatePropertyAll(
           Theme.of(context).colorScheme.secondaryContainer,
         ),

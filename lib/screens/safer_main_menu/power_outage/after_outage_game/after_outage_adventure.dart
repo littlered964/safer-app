@@ -7,13 +7,391 @@ import 'package:flame/game.dart';
 import 'package:flame/sprite.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flame/input.dart';
+import 'package:flame/events.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'fridge_mini_game.dart';
+
 
 enum Room { living, basement, frontLawn, sidewalk, neighbor, kitchen }
 
+class ChecklistModel {
+  bool powerRestored = false;
+  bool basementResolved = false;
+  bool fridgeChecked = false;
+  bool frontYardVideo = false;
+  bool sidewalkResolved = false;
+  bool neighborChecked = false;
+  bool livingGlassCleared = false;
+  bool leakyHydrantReported = false;
+
+  bool get isComplete =>
+      powerRestored &&
+      basementResolved &&
+      fridgeChecked &&
+      frontYardVideo &&
+      sidewalkResolved &&
+      neighborChecked &&
+      livingGlassCleared &&
+      leakyHydrantReported;
+
+  List<MapEntry<String, bool>> get items => [
+        MapEntry('Power restored', powerRestored),
+        MapEntry('Basement safe (flood resolved)', basementResolved),
+        MapEntry('Fridge checked (food safety)', fridgeChecked),
+        MapEntry('Video of front yard taken', frontYardVideo),
+        MapEntry('Sidewalk safe (downed line handled)', sidewalkResolved),
+        MapEntry('Leaky hydrant reported', leakyHydrantReported),
+        MapEntry('Checked on neighbor', neighborChecked),
+        MapEntry('Broken glass swept (living room)', livingGlassCleared),
+      ];
+}
+
+class ChecklistOverlay extends PositionComponent
+    with HasGameRef<SaferAdventureGame> {
+  bool open = false;
+
+  ChecklistOverlay() {
+    priority = 2500;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (!open) return;
+    final s = gameRef.size;
+    final w = (s.x * 0.54).clamp(260, 420).toDouble();
+    final h = (s.y * 0.60).clamp(240, 420).toDouble();
+    final r = RRect.fromRectAndRadius(
+      Rect.fromLTWH(s.x - w - 16, s.y - h - 16, w, h),
+      const Radius.circular(16),
+    );
+    canvas.drawRRect(r, Paint()..color = Colors.black.withOpacity(0.85));
+
+    final title = TextPainter(
+      text: const TextSpan(
+        text: 'Storm Recovery Checklist',
+        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: w - 24);
+    title.paint(canvas, Offset(s.x - w - 16 + 12, s.y - h - 16 + 12));
+
+    final model = gameRef.checklist;
+    double y = s.y - h - 16 + 44;
+    for (final item in model.items) {
+      final checked = item.value;
+
+      final box = RRect.fromRectAndRadius(
+        Rect.fromLTWH(s.x - w - 16 + 12, y, 18, 18),
+        const Radius.circular(4),
+      );
+      canvas.drawRRect(
+        box,
+        Paint()..color = checked ? const Color(0xFF2E7D32) : Colors.white12,
+      );
+      if (checked) {
+        final checkTP = TextPainter(
+          text: const TextSpan(
+              text: '✓',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        checkTP.paint(
+          canvas,
+          Offset(box.outerRect.center.dx - checkTP.width / 2,
+                box.outerRect.center.dy - checkTP.height / 2),
+        );
+      }
+
+      final labelTP = TextPainter(
+        text: TextSpan(
+          text: item.key,
+          style: TextStyle(color: checked ? Colors.white70 : Colors.white, fontSize: 14),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: w - 52);
+      labelTP.paint(canvas, Offset(s.x - w - 16 + 12 + 26, y - 1));
+
+      y += 28;
+    }
+
+    if (model.isComplete) {
+      final win = TextPainter(
+        text: const TextSpan(
+          text: 'All tasks complete — You win!',
+          style: TextStyle(color: Color(0xFF80E27E), fontSize: 15, fontWeight: FontWeight.w800),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: w - 24);
+      win.paint(canvas, Offset(s.x - w - 16 + 12, s.y - 16 - win.height - 12));
+    }
+  }
+}
+
+/// Intro overlay shown at the start with instructions and Start/Exit buttons
+class HowToPlayOverlay extends PositionComponent
+    with HasGameRef<SaferAdventureGame>, TapCallbacks {
+  HowToPlayOverlay() {
+    priority = 3000; // above HUD and world
+  }
+
+  @override
+  Future<void> onLoad() async {
+    anchor = Anchor.topLeft;
+    position = Vector2.zero();
+    size = gameRef.size;
+  }
+
+  @override
+  void onGameResize(Vector2 canvasSize) {
+    super.onGameResize(canvasSize);
+    size = canvasSize;
+    position = Vector2.zero();
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final s = gameRef.size;
+    final w = (s.x * 0.88).clamp(300, 560).toDouble();
+    final h = (s.y * 0.60).clamp(260, 420).toDouble();
+
+    // Global dim so it’s obvious the game is paused & to catch taps visually
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, s.x, s.y),
+      Paint()..color = Colors.black.withOpacity(0.65),
+    );
+
+    final panel = RRect.fromRectAndRadius(
+      Rect.fromLTWH((s.x - w) / 2, (s.y - h) / 2, w, h),
+      const Radius.circular(16),
+    );
+    canvas.drawRRect(panel, Paint()..color = Colors.black.withOpacity(0.85));
+
+    const instructions = '''
+Welcome to the After Outage Adventure!
+
+• Move with the joystick
+• Tap doors to change rooms
+• Step into hotspots to complete tasks
+• Complete all tasks to win
+• Open checklist to see tasks
+
+Good luck — stay safe!
+''';
+
+    final tp = TextPainter(
+      text: const TextSpan(
+        text: instructions,
+        style: TextStyle(color: Colors.white, fontSize: 15, height: 1.35),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.left,
+    )..layout(maxWidth: w - 28);
+    tp.paint(canvas, Offset((s.x - w) / 2 + 14, (s.y - h) / 2 + 18));
+
+    // Buttons
+    const btnW = 120.0, btnH = 44.0, gap = 12.0;
+    final buttonsTop = (s.y + h) / 2 - 56;
+    final startRect = Rect.fromLTWH((s.x / 2) - btnW - gap, buttonsTop, btnW, btnH);
+    final exitRect  = Rect.fromLTWH((s.x / 2) + gap,         buttonsTop, btnW, btnH);
+
+    // Start
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(startRect, const Radius.circular(8)),
+      Paint()..color = const Color(0xFF2E7D32),
+    );
+    final startTP = TextPainter(
+      text: const TextSpan(
+        text: 'Start',
+        style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    startTP.paint(
+      canvas,
+      Offset(startRect.center.dx - startTP.width / 2, startRect.center.dy - startTP.height / 2),
+    );
+
+    // Exit
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(exitRect, const Radius.circular(8)),
+      Paint()..color = const Color(0xFFC62828),
+    );
+    final exitTP = TextPainter(
+      text: const TextSpan(
+        text: 'Exit',
+        style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    exitTP.paint(
+      canvas,
+      Offset(exitRect.center.dx - exitTP.width / 2, exitRect.center.dy - exitTP.height / 2),
+    );
+  }
+
+  // Swallow all taps so nothing underneath receives them.
+  @override
+  void onTapDown(TapDownEvent event) { event.handled = true; }
+  @override
+  void onTapCancel(TapCancelEvent event) { event.handled = true; }
+
+  @override
+  void onTapUp(TapUpEvent event) {
+    event.handled = true;
+
+    final p = event.localPosition;
+    final s = gameRef.size;
+    final w = (s.x * 0.88).clamp(300, 560).toDouble();
+    final h = (s.y * 0.60).clamp(260, 420).toDouble();
+
+    const btnW = 120.0, btnH = 44.0, gap = 12.0;
+    final buttonsTop = (s.y + h) / 2 - 56;
+    final startRect = Rect.fromLTWH((s.x / 2) - btnW - gap, buttonsTop, btnW, btnH);
+    final exitRect  = Rect.fromLTWH((s.x / 2) + gap,         buttonsTop, btnW, btnH);
+
+    final pos = Offset(p.x, p.y);
+
+    if (startRect.contains(pos)) {
+      (gameRef).lockInput(false); // unlock controls
+      removeFromParent();                               // close overlay
+      return;
+    }
+    if (exitRect.contains(pos)) {
+      (gameRef).onExitToMenu?.call(); // back to Power Outage page
+      return;
+    }
+  }
+}
+
+
 class SaferAdventureGame extends FlameGame {
+  final VoidCallback? onExitToMenu;
+  late BuildContext context;
+  SaferAdventureGame({this.onExitToMenu});
+
+  // Checklist notification
+  final ValueNotifier<int> checklistBadgeCount = ValueNotifier<int>(0);
+
+  // audio
+  late final AudioPlayer _sfxPlayer;
+  bool _muted = false;
+
+  // game-over flags
+  bool _gameOver = false;
+  bool _winDialogShown = false;
+
+
   late final Player _player;
   late final HudToast _hud;
   late final FadeCurtain _fade;
+  final ValueNotifier<String> roomLabel = ValueNotifier<String>('');
+
+  // Shows the last solid object you walked into
+  final ValueNotifier<String> bumpLabel = ValueNotifier<String>('');
+
+  // Named zones
+  List<({Rect rect, String name})> _namedSolids = [];
+  List<({Rect rect, String name})> _namedKills  = [];
+
+  // Setters used by RoomBox each frame
+  void setNamedSolids(List<({Rect rect, String name})> items) {
+    _namedSolids = items;
+    // keep raw rects for legacy collision
+    setSolids(items.map((e) => e.rect).toList());
+  }
+  void setNamedKills(List<({Rect rect, String name})> items) {
+    _namedKills = items;
+    // keep raw rects for legacy kill logic
+    setKillZones(items.map((e) => e.rect).toList());
+  }
+
+  // Called by Player when bumping into a solid
+  void _notifyBump(String? name) {
+    bumpLabel.value = (name ?? '').trim();
+  }
+
+  
+  // Living room broken glass state & guard 
+  bool _livingGlassPresent = true;   // start broken by default
+  bool _livingGlassIgnored = false;  // player said "No" to sweeping
+
+  RoomBox? _roomBox() {
+    final it = children.whereType<RoomBox>();
+    return it.isEmpty ? null : it.first;
+  }
+
+  // Handles so we can remove them after sweeping
+  Doorway? _sweepDoorBottom;
+  Doorway? _sweepDoorRight; 
+
+
+  // global kill-zone registry
+  final List<Rect> _killZones = [];
+  void setKillZones(List<Rect> r) {
+    _killZones
+      ..clear()
+      ..addAll(r);
+  }
+  List<Rect> get killZones => _killZones;
+
+  // toggleable debug outlines
+  bool debugZones = false; // turn off for release
+
+
+  // Checklist & overlay
+  final ChecklistModel checklist = ChecklistModel();
+  late final ChecklistOverlay _checklist;
+
+  void toggleChecklist() {
+    _checklist.open = !_checklist.open;
+    if (_checklist.open) {
+      checklistBadgeCount.value = 0;
+    }
+  }
+
+  void startFridgeMiniGame() {
+    if (_fridgeMiniRunning || isTransitioning) return;
+    _fridgeMiniRunning = true;
+    lockInput(true);
+
+    add(
+      FridgeMiniGame(
+        onFinished: ({required int tossedBad, required int savedGood, required bool perfect}) async {
+          // Parent owns the comeback transition
+          await _fade.fadeToBlack(duration: 0.18);
+
+          if (tossedBad + savedGood > 0 && perfect) {
+            _markTaskDone(checklist.fridgeChecked, () { checklist.fridgeChecked = true; });
+            _hud.show('Fridge checked — food sorted!');
+          } else {
+            _hud.show('Fridge check incomplete — try again later.');
+          }
+
+          _fridgeMiniRunning = false;
+          lockInput(false);
+
+          // tiny yield to ensure mini-game removed itself
+          await Future<void>.delayed(const Duration(milliseconds: 1));
+          await _fade.fadeInFromBlack(duration: 0.18);
+        },
+        onCancel: () async {
+          await _fade.fadeToBlack(duration: 0.12);
+          _hud.show('Fridge check canceled.');
+          _fridgeMiniRunning = false;
+          lockInput(false);
+          await Future<void>.delayed(const Duration(milliseconds: 1));
+          await _fade.fadeInFromBlack(duration: 0.12);
+        },
+      )..size = size,
+    );
+  }
+
+  // Input lock used by the how-to overlay
+  bool _inputLocked = false;
+  bool get isInputLocked => _inputLocked;
+  void lockInput([bool v = true]) => _inputLocked = v;
+
 
   Room _room = Room.living;
   bool _initialized = false;
@@ -21,15 +399,29 @@ class SaferAdventureGame extends FlameGame {
 
   // First-visit random events
   bool _visitedSidewalk = false;
-  bool _sidewalkDownedLine = false; // 50/50 on first enter
+  bool _sidewalkDownedLine = false;
   bool _visitedBasement = false;
-  bool _basementFlooded = false;    // 50/50 on first enter
+  bool _basementFlooded = false;
+
+  // Sidewalk leaky hydrant
+  bool _hydrantLeaking = true;
+  bool get hydrantLeaking => _hydrantLeaking;
+
+
+  bool _fridgeMiniRunning = false; // controls fridge mini-game state
+
+  // Player can ignore the hazard, but then stepping in it should kill them
+  bool _basementIgnored = false;
+  bool _sidewalkIgnored = false;
+
+  // Front-lawn debris (for the video task)
+  bool _frontLawnHasDebris = true;
 
   // Expose for drawing
   bool get sidewalkDownedLine => _sidewalkDownedLine;
   bool get basementFlooded => _basementFlooded;
 
-  // Solids for collision (furniture etc.)
+  // Solids for collision
   final List<Rect> _solids = [];
   List<Rect> get solids => _solids;
   void setSolids(List<Rect> r) {
@@ -40,12 +432,11 @@ class SaferAdventureGame extends FlameGame {
 
   // Door rectangles per room so we can spawn right at doors
   Map<String, Rect> _doorRectsFor(Room room) {
-    // Keep door geometry centralized & consistent with rendering.
     Rect bottomDoor()   => Rect.fromLTWH(size.x / 2 - 20, size.y - 48, 40, 28);
     Rect topDoor()      => Rect.fromLTWH(size.x / 2 - 20, 20,               40, 28);
     Rect rightDoor()    => Rect.fromLTWH(size.x - 56,    size.y / 2 - 20,   40, 40);
     Rect leftDoor()     => Rect.fromLTWH(16,             size.y / 2 - 20,   40, 40);
-    Rect topRightDoor() => Rect.fromLTWH(size.x - 80,    20,                60, 28);
+    Rect topRightDoor() => Rect.fromLTWH(size.x - 80,    52,                60, 28);
 
     switch (room) {
       case Room.living:
@@ -57,12 +448,13 @@ class SaferAdventureGame extends FlameGame {
       case Room.basement:
         return {'toLiving': topDoor()};
       case Room.frontLawn:
-        // Sidewalk door is top-right now (to suggest neighbor’s direction)
         return {'toLiving': bottomDoor(), 'toSidewalk': topRightDoor()};
       case Room.sidewalk:
         return {'toFrontLawn': leftDoor(), 'toNeighbor': rightDoor()};
       case Room.neighbor:
-        return {'toSidewalk': leftDoor()};
+        return {
+          'toSidewalk': Rect.fromLTWH(16, size.y * 0.10, 40, 40),
+        };
       case Room.kitchen:
         return {'toLiving': leftDoor()};
     }
@@ -75,14 +467,9 @@ class SaferAdventureGame extends FlameGame {
 
   @override
   Future<void> onLoad() async {
-    images.prefix = ''; // use full asset keys
-
-    // (Optional) proof the sprite is present
-    try {
-      final manifest = await rootBundle.loadString('AssetManifest.json');
-      final hasSprite = manifest.contains('"assets/images/sprites/main_guy_3x4_32.png"');
-      debugPrint('[AssetCheck] Has main_guy_3x4_32.png? $hasSprite');
-    } catch (_) {}
+    images.prefix = '';
+    _sfxPlayer = AudioPlayer(playerId: 'after_outage_sfx')
+      ..setReleaseMode(ReleaseMode.stop);
 
     final roomBox = RoomBox(room: _room)..priority = 0;
     add(roomBox);
@@ -91,17 +478,56 @@ class SaferAdventureGame extends FlameGame {
     add(_hud);
 
     _player = Player()
-      ..position = Vector2(size.x * 0.45, size.y * 0.55) // start somewhere in Living Room
+      ..position = Vector2(size.x * 0.22, size.y * 0.40)
       ..priority = 50;
     add(_player);
 
     _fade = FadeCurtain(size: size)..priority = 2000;
     add(_fade);
+    add(_ZoneDebugOverlay()..priority = 1200);
+
+
+    // Show intro overlay and lock input until "Start"
+    lockInput(true);
+    add(HowToPlayOverlay());
+
+
+    _checklist = ChecklistOverlay()..priority = 1300;
+    add(_checklist);
+
 
     _buildInteractivesFor(_room);
     roomBox.recomputeSolids();
+
+    // SAFETY NUDGE: if initial spawn overlaps a solid, move to a secondary clear spot
+    {
+      const double hb = 16.0;
+      Rect hitboxAt(Vector2 p) =>
+          Rect.fromCenter(center: Offset(p.x, p.y), width: hb, height: hb);
+      final solidRects = this.solids;
+      Vector2 p = _player.position.clone();
+      bool collides(Rect r) => solidRects.any((s) => r.overlaps(s));
+
+      if (collides(hitboxAt(p))) {
+        // try a couple of backup positions
+        final candidates = <Vector2>[
+          Vector2(size.x * 0.22, size.y * 0.40), // primary
+          Vector2(size.x * 0.30, size.y * 0.35),
+          Vector2(size.x * 0.25, size.y * 0.55),
+          Vector2(size.x * 0.40, size.y * 0.35),
+        ];
+        for (final c in candidates) {
+          if (!collides(hitboxAt(c))) {
+            _player.position = c;
+            break;
+          }
+        }
+      }
+    }
+
     _initialized = true;
 
+    roomLabel.value = _roomLabel(_room);
     // Nudge the player to check the lamp first
     _hud.show('Check a lamp to see if power is back on.');
   }
@@ -114,20 +540,37 @@ class SaferAdventureGame extends FlameGame {
 
     _clearInteractives();
     _buildInteractivesFor(_room);
-    children.whereType<RoomBox>().firstOrNull?.recomputeSolids();
+    _roomBox()?.recomputeSolids();
   }
 
   // Public hook for D-pad
   void setMobileDir(double dx, double dy) {
+    if (isInputLocked) {
+      _player.dir = Vector2.zero();
+      return;
+    }
     final v = Vector2(dx, dy);
     _player.dir = v.length2 == 0 ? Vector2.zero() : v.normalized();
   }
 
-  // --- Room building ---
+
+  // Room building
 
   void _clearInteractives() {
     children.whereType<Doorway>().toList().forEach((d) => d.removeFromParent());
     children.whereType<Hotspot>().toList().forEach((h) => h.removeFromParent());
+  }
+
+  void _markTaskDone(bool alreadyDone, void Function() setTrue) {
+    if (alreadyDone) return;
+    setTrue();
+    if (!_checklist.open) {
+      checklistBadgeCount.value = (checklistBadgeCount.value + 1).clamp(0, 99);
+    }
+    _playSfx('correct.mp3');
+    if (checklist.isComplete) {
+      winGame();
+    }
   }
 
   void _buildInteractivesFor(Room room) {
@@ -164,7 +607,31 @@ class SaferAdventureGame extends FlameGame {
         },
       ));
 
-      // LAMP HOTSPOT (near where we draw the lamp) — invisible UI
+      Rect _livingGlassRect() {
+        const double inset = 14.0;
+        final Rect screen = Rect.fromLTWH(0, 0, size.x, size.y);
+        final Rect inner  = screen.deflate(inset);
+
+        // You set pixel mode:
+        const bool   L_GLASS_USE_PERCENT = false;
+
+        // Pixel mode (your new placement)
+        const double L_GLASS_LEFT_PX   = 8.0;
+        const double L_GLASS_TOP_PX    = 8.0;
+        const double L_GLASS_WIDTH_PX  = 50.0;
+        const double L_GLASS_HEIGHT_PX = 35.0;
+
+        if (!L_GLASS_USE_PERCENT) {
+          return Rect.fromLTWH(
+            inner.left + L_GLASS_LEFT_PX,
+            inner.top  + L_GLASS_TOP_PX,
+            L_GLASS_WIDTH_PX,
+            L_GLASS_HEIGHT_PX,
+          );
+        }
+      }
+
+      // LAMP HOTSPOT
       final lampCenter = _livingLampCenter();
       add(Hotspot(
         center: lampCenter,
@@ -176,12 +643,84 @@ class SaferAdventureGame extends FlameGame {
           final rb = children.whereType<RoomBox>().first;
           if (!rb.lampOn) {
             rb.lampOn = true;
+            _markTaskDone(checklist.powerRestored, () {
+              checklist.powerRestored = true;
+            });
             _hud.show('The lamp turns on — power is back!');
           } else {
             _hud.show('Lamp is already on.');
           }
         },
       ));
+      // Sweep glass hot spots
+      _sweepDoorBottom?.removeFromParent();
+      _sweepDoorRight?.removeFromParent();
+      _sweepDoorBottom = null;
+      _sweepDoorRight  = null;
+
+      if (_livingGlassPresent) {
+        final Rect glass = _roomBox()?.currentLivingGlassRect ?? _livingGlassRect();
+
+        // thin bar along the bottom edge
+        final bottomBar = Rect.fromLTWH(
+          glass.left,
+          glass.bottom + 4,
+          glass.width,
+          18,
+        );
+
+        // thin bar along the right edge
+        final rightBar = Rect.fromLTWH(
+          glass.right + 4,
+          glass.top,
+          18,
+          glass.height,
+        );
+
+        Future<void> _doSweep() async {
+          if (!_livingGlassPresent) { _hud.show('Window area already cleared.'); return; }
+          final yes = await _showYesNoDialog('Broken Glass', 'Sweep up the broken glass now?');
+          if (yes) {
+            await _fade.fadeToBlack(duration: 0.18);
+            _livingGlassPresent = false;
+            _livingGlassIgnored = false;
+
+            // checklist tick + badge
+            _markTaskDone(checklist.livingGlassCleared, () {
+              checklist.livingGlassCleared = true;
+            });
+
+            // remove the two sweep hotspots so they stop showing
+            _sweepDoorBottom?..removeFromParent();
+            _sweepDoorRight?..removeFromParent();
+            _sweepDoorBottom = null;
+            _sweepDoorRight  = null;
+
+            // refresh room art
+            _roomBox()?.room = Room.living;
+            await _fade.fadeInFromBlack(duration: 0.18);
+            _hud.show('Glass cleared.');
+          } else {
+            _livingGlassIgnored = true;
+            _hud.show('Be careful — glass is still on the floor.');
+          }
+        }
+
+        _sweepDoorBottom = Doorway(
+          rect: bottomBar,
+          label: 'Sweep Up Glass',
+          onEnter: () async { HapticFeedback.selectionClick(); await _doSweep(); },
+        )..priority = 6;
+        add(_sweepDoorBottom!);
+
+        _sweepDoorRight = Doorway(
+          rect: rightBar,
+          label: 'Sweep Up Glass',
+          onEnter: () async { HapticFeedback.selectionClick(); await _doSweep(); },
+        )..priority = 6;
+        add(_sweepDoorRight!);
+      }
+
     } else if (room == Room.basement) {
       add(Doorway(
         rect: basementDoors['toLiving']!,
@@ -208,7 +747,47 @@ class SaferAdventureGame extends FlameGame {
           await _goTo(Room.sidewalk, spawnFrom: 'toFrontLawn');
         },
       ));
-    } else if (room == Room.sidewalk) {
+
+      // front yard video interaction
+      final Rect recordRect = Rect.fromCenter(
+        center: Offset(size.x * 0.76, size.y * 0.70),
+        width: 64,
+        height: 36,
+      );
+
+      add(Doorway(
+        rect: recordRect,
+        label: 'Record Damage',
+        color: Colors.black.withOpacity(0.35),
+        textColor: Colors.black.withOpacity(0.90),
+        onEnter: () async {
+          if (checklist.frontYardVideo) {
+            _hud.show('Front yard already documented.');
+            return;
+          }
+
+          final yes = await _showYesNoDialog(
+            'Front Yard',
+            'Take a quick video of the storm debris for insurance?',
+          );
+          if (yes) {
+            await _fade.fadeToBlack(duration: 0.18);
+            _frontLawnHasDebris = false;
+            _markTaskDone(checklist.frontYardVideo, () {
+              checklist.frontYardVideo = true;
+            });
+            _roomBox()?.room = Room.frontLawn;
+            await _fade.fadeInFromBlack(duration: 0.18);
+            _hud.show('Video taken — debris cleared.');
+          } else {
+            _hud.show('You can record it later.');
+          }
+        },
+      ));
+
+
+      } else if (room == Room.sidewalk) {
+      // Doors to other rooms
       add(Doorway(
         rect: sidewalkDoors['toFrontLawn']!,
         label: '← Front Lawn',
@@ -225,13 +804,173 @@ class SaferAdventureGame extends FlameGame {
           await _goTo(Room.neighbor, spawnFrom: 'toSidewalk');
         },
       ));
+
+      // sidewalk geometry for hotspots
+      const double inset = 14.0;
+      final Rect screen = Rect.fromLTWH(0, 0, size.x, size.y);
+      final Rect inner  = screen.deflate(inset);
+
+      final double streetH = (inner.height * 0.24).clamp(56.0, 120.0);
+      final double grassH  = (inner.height * 0.30).clamp(70.0, 160.0);
+      final double pathH   = inner.height - streetH - grassH;
+
+      final Rect streetRect = Rect.fromLTWH(inner.left, inner.top, inner.width, streetH);
+      final Rect pathRect   = Rect.fromLTWH(inner.left, streetRect.bottom, inner.width, pathH);
+      final Rect grassRect  = Rect.fromLTWH(inner.left, pathRect.bottom, inner.width, grassH);
+
+      // Baseline Y for both hotspots (sitting on the sidewalk just above the grass)
+      final double hotspotY = grassRect.top - 18.0;
+
+      // Hydrant hotspot
+      const double hydrantHotW = 40.0;
+      const double hydrantHotH = 30.0;
+      final Offset hydrantCenter = Offset(
+        pathRect.left + pathRect.width * 0.58,
+        hotspotY,
+      );
+      final Rect hydrantHotRect = Rect.fromCenter(
+        center: hydrantCenter,
+        width: hydrantHotW,
+        height: hydrantHotH,
+      );
+
+      // downed-line hotspot
+      const double powerHotW = 40.0;
+      const double powerHotH = 30.0;
+      const double powerGap  = 42.0;
+
+      final Offset powerCenter = Offset(
+        hydrantCenter.dx - (hydrantHotW / 2 + powerGap + powerHotW / 2),
+        hotspotY,
+      );
+      final Rect powerHotRect = Rect.fromCenter(
+        center: powerCenter,
+        width: powerHotW,
+        height: powerHotH,
+      );
+
+      //Downed power line
+      add(Doorway(
+        rect: powerHotRect,
+        label: 'Downed Line',
+        color: Colors.black.withOpacity(0.35),
+        textColor: Colors.black.withOpacity(0.90),
+        onEnter: () async {
+          final checklist = this.checklist;
+          if (!_sidewalkDownedLine) {
+            if (checklist.sidewalkResolved) {
+              _hud.show('Sidewalk already safe.');
+            } else {
+              _markTaskDone(checklist.sidewalkResolved, () {
+                checklist.sidewalkResolved = true;
+              });
+              _hud.show('Sidewalk checked — area is safe.');
+            }
+            return;
+          }
+
+          final yes = await _showYesNoDialog(
+            'Downed Power Line',
+            'A live wire is on the grass.\nCall the utility company to secure the area?',
+          );
+          if (yes) {
+            await _fade.fadeToBlack(duration: 0.22);
+            _sidewalkDownedLine = false;
+            _markTaskDone(checklist.sidewalkResolved, () {
+              checklist.sidewalkResolved = true;
+            });
+            children.whereType<RoomBox>().firstOrNull?.room = Room.sidewalk;
+            await _fade.fadeInFromBlack(duration: 0.22);
+            _hud.show('Utility notified — area safe.');
+          } else {
+            _hud.show('Stay clear of the line!');
+            _sidewalkIgnored = true;
+          }
+        },
+      ));
+      // leaky fire hydrant
+      add(Doorway(
+        rect: hydrantHotRect,
+        label: 'Leaky Hydrant',
+        color: Colors.black.withOpacity(0.35),
+        textColor: Colors.white,
+        onEnter: () async {
+          HapticFeedback.selectionClick();
+          if (checklist.leakyHydrantReported) {
+            _hud.show('Hydrant leak already reported.');
+            return;
+          }
+
+          final yes = await _showYesNoDialog(
+            'Leaky Hydrant',
+            'Water is leaking from the hydrant.\nCall the water department?',
+          );
+
+          if (!yes) {
+            _hud.show('You can report it later.');
+            return;
+          }
+
+          // fade, stop leak, tick checklist
+          await _fade.fadeToBlack(duration: 0.22);
+
+          _hydrantLeaking = false;
+
+          _markTaskDone(checklist.leakyHydrantReported, () {
+            checklist.leakyHydrantReported = true;
+          });
+
+          // force sidewalk art to refresh
+          children.whereType<RoomBox>().firstOrNull?.room = Room.sidewalk;
+
+          await _fade.fadeInFromBlack(duration: 0.22);
+          _hud.show('Water department notified — leak stopped.');
+        },
+      ));
     } else if (room == Room.neighbor) {
       add(Doorway(
         rect: neighborDoors['toSidewalk']!,
         label: '← Sidewalk',
+        color: Colors.black.withOpacity(0.28), 
+        textColor: Colors.white,
         onEnter: () async {
           HapticFeedback.selectionClick();
-          await _goTo(Room.sidewalk, spawnFrom: 'toNeighbor');
+          await _goTo(Room.sidewalk, spawnFrom: 'toSidewalk');
+        },
+      ));
+
+      // check on neighboor
+      final Rect neighborDoorRect = Rect.fromLTWH(
+        size.x / 2 - 20,
+        size.y - 72,
+        40,
+        28,
+      );
+      add(Doorway(
+        rect: neighborDoorRect,
+        label: 'Check Neighbor',
+        color: Colors.black.withOpacity(0.35),
+        textColor: Colors.black.withOpacity(0.90),
+        onEnter: () async {
+          await _playSfx('openDoor.wav', volume: 0.9);
+          if (checklist.neighborChecked) {
+            _hud.show('Neighbor is okay.');
+            return;
+          }
+          // dialog with neighbor
+          add(
+            NeighborDialog(
+              message: 'Thank you for checking on me.\n'
+                      'I\'m okay, just a bit shaken after the storm.\n\n'
+                      'It really helps to have neighbors looking out for me.',
+              onComplete: () {
+                _markTaskDone(checklist.neighborChecked, () {
+                  checklist.neighborChecked = true;
+                });
+                _hud.show('Neighbor checked on.');
+              },
+            ),
+          );
         },
       ));
     } else if (room == Room.kitchen) {
@@ -243,20 +982,54 @@ class SaferAdventureGame extends FlameGame {
           await _goTo(Room.living, spawnFrom: 'toKitchen');
         },
       ));
-      // Food Safety hotspot stays in kitchen
-      final cx = (size.x * 0.70).clamp(80, size.x - 80).toDouble();
-      final cy = (size.y * 0.28).clamp(80, size.y - 80).toDouble();
-      add(Hotspot(
-        center: Vector2(cx, cy),
-        radius: 36,
-        title: 'Food Safety',
-        onTrigger: () {
-          HapticFeedback.lightImpact();
-          _hud.show('Discard perishables kept > 40°F for 2+ hours.');
+
+      // Fridge hotspot
+      const double inset = 14.0;
+      final Rect screen = Rect.fromLTWH(0, 0, size.x, size.y);
+      final Rect inner  = screen.deflate(inset);
+
+      final double rightPad   = 8.0;
+      final double ovenH      = inner.height * 0.18;
+      final double sinkH      = inner.height * 0.22;
+      final double counterH   = inner.height * 0.24;
+
+      final double baseFridgeH = inner.height - (ovenH + sinkH + counterH);
+
+      const double FRIDGE_HEIGHT_SCALE = 0.50;
+      const double FRIDGE_PROTRUDE_PX  = 22.0;
+      final double fridgeWBase = 72.0;
+      final double fridgeW     = fridgeWBase + FRIDGE_PROTRUDE_PX;
+      final double fridgeH     = baseFridgeH * FRIDGE_HEIGHT_SCALE;
+
+      final double fridgeRight = inner.right - rightPad;
+      final double fridgeX     = fridgeRight - fridgeW;
+      final double fridgeY     = inner.bottom - fridgeH;
+      final Rect   fridgeRect  = Rect.fromLTWH(fridgeX, fridgeY, fridgeW, fridgeH);
+
+      // vertical interaction bar to left of fridge
+      final double doorBarW   = 22.0;
+      final double doorBarH   = (fridgeH * 0.90).clamp(70, 160);
+      final double doorBarGap = 6.0;
+
+      final Rect fridgeDoorRect = Rect.fromCenter(
+        center: Offset(fridgeRect.left - doorBarGap - doorBarW / 2, fridgeRect.center.dy),
+        width: doorBarW,
+        height: doorBarH,
+      );
+
+      add(Doorway(
+        rect: fridgeDoorRect,
+        label: 'Fridge Check',
+        color: Colors.black.withOpacity(0.35),
+        onEnter: () async {
+          HapticFeedback.selectionClick();
+          if (!checklist.powerRestored) { _hud.show('Restore power first (check a lamp).'); return; }
+          if (checklist.fridgeChecked)   { _hud.show('Fridge already checked.');            return; }
+          startFridgeMiniGame();
         },
       ));
-    }
 
+    }
     // Update background + solids
     children.whereType<RoomBox>().firstOrNull
       ?..room = room
@@ -266,40 +1039,39 @@ class SaferAdventureGame extends FlameGame {
   // Spawn just inside the destination room’s door you came through
   Vector2 _spawnPoint(Room dest, String? spawnFromKey) {
     final doors = _doorRectsFor(dest);
-    // Fallback: center
     Vector2 center() => Vector2(size.x / 2, size.y / 2);
 
     if (spawnFromKey == null || !doors.containsKey(spawnFromKey)) {
       return center();
     }
     final r = doors[spawnFromKey]!;
-    const inside = 24.0; // how far inside the room we appear
+    const inside = 24.0;
 
     switch (dest) {
       case Room.living:
         if (spawnFromKey == 'toBasement') {
-          return Vector2(r.center.dx, r.top - inside); // coming up -> above bottom door
+          return Vector2(r.center.dx, r.top - inside);
         } else if (spawnFromKey == 'toFrontLawn') {
-          return Vector2(r.center.dx, r.bottom + inside); // came in from lawn -> below top door
+          return Vector2(r.center.dx, r.bottom + inside);
         } else if (spawnFromKey == 'toKitchen') {
-          return Vector2(r.left - inside, r.center.dy); // from kitchen -> left of right door
+          return Vector2(r.left - inside, r.center.dy);
         }
         break;
       case Room.basement:
         if (spawnFromKey == 'toLiving') {
-          return Vector2(r.center.dx, r.bottom + inside); // appeared at top door -> below it
+          return Vector2(r.center.dx, r.bottom + inside);
         }
         break;
       case Room.frontLawn:
         if (spawnFromKey == 'toLiving') {
-          return Vector2(r.center.dx, r.top - inside); // stepping out the front door
+          return Vector2(r.center.dx, r.top - inside);
         } else if (spawnFromKey == 'toSidewalk') {
-          return Vector2(r.center.dx + 40, r.bottom + inside); // from sidewalk -> below top-right
+          return Vector2(r.center.dx + 40, r.bottom + inside); 
         }
         break;
       case Room.sidewalk:
         if (spawnFromKey == 'toFrontLawn') {
-          return Vector2(r.right + inside, r.center.dy); // from lawn -> right of left door
+          return Vector2(r.right + inside, r.center.dy);
         } else if (spawnFromKey == 'toNeighbor') {
           return Vector2(r.left - inside, r.center.dy);
         }
@@ -311,7 +1083,7 @@ class SaferAdventureGame extends FlameGame {
         break;
       case Room.kitchen:
         if (spawnFromKey == 'toLiving') {
-          return Vector2(r.right + inside, r.center.dy); // from living -> right of left door
+          return Vector2(r.right + inside, r.center.dy);
         }
         break;
     }
@@ -324,23 +1096,51 @@ class SaferAdventureGame extends FlameGame {
 
     await _fade.fadeToBlack();
 
-    // First-visit randomization
     if (dest == Room.sidewalk && !_visitedSidewalk) {
       _visitedSidewalk = true;
-      _sidewalkDownedLine = math.Random().nextBool();
-      if (_sidewalkDownedLine) {
-        _hud.show('Caution: downed power line on the grass.');
-      }
+      _sidewalkDownedLine = true;
+      _hud.show('Caution: downed power line on the grass.');
     }
     if (dest == Room.basement && !_visitedBasement) {
       _visitedBasement = true;
-      _basementFlooded = math.Random().nextBool();
-      if (_basementFlooded) {
-        _hud.show('Basement is flooded.');
-      }
+      _basementFlooded = true;
+      _hud.show('Basement is flooded.');
+    }
+
+    // If we checked the room and there was no hazard, count it as resolved
+    if (dest == Room.basement && !_basementFlooded && !checklist.basementResolved) {
+      _markTaskDone(checklist.basementResolved, () {
+        checklist.basementResolved = true;
+      });
+      _hud.show('Basement checked — no water found.');
+    }
+
+    // First-visit hazard prompts
+    if (dest == Room.basement && _basementFlooded && !checklist.basementResolved) {
+      Future.delayed(const Duration(milliseconds: 400), () async {
+        final yes = await _showYesNoDialog(
+          'Flooded Basement',
+          'Basement appears flooded.\nCall an electrician to inspect?',
+        );
+        if (yes) {
+          await _fade.fadeToBlack(duration: 0.22);
+          _basementFlooded = false;
+          _markTaskDone(checklist.basementResolved, () {
+            checklist.basementResolved = true;
+          });
+          // force room redraw
+          children.whereType<RoomBox>().firstOrNull?.room = Room.basement;
+          await _fade.fadeInFromBlack(duration: 0.22);
+          _hud.show('Electrician contacted — basement safe.');
+        } else {
+          _hud.show('Basement remains unsafe.');
+          _basementIgnored = true;
+        }
+      });
     }
 
     _room = dest;
+    roomLabel.value = _roomLabel(_room);
 
     _clearInteractives();
     _buildInteractivesFor(dest);
@@ -363,9 +1163,8 @@ class SaferAdventureGame extends FlameGame {
     }
   }
 
-  // Keep the same math as RoomBox for lamp center so the hotspot lines up.
+  // Keep the same math as RoomBox for lamp center so the hotspot lines up
   Vector2 _livingLampCenter() {
-    // Mirror RoomBox._drawLivingRoom calculations
     const inset = 14.0;
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
     final inner = rect.deflate(inset);
@@ -377,9 +1176,191 @@ class SaferAdventureGame extends FlameGame {
     final baseCenter = Offset(rug.right + 26.0, rug.top - 10.0);
     return Vector2(baseCenter.dx, baseCenter.dy);
   }
+
+  // Gives Flame access to current BuildContext from GameWidget
+  Future<bool> _showYesNoDialog(String title, String question) async {
+    final ctx = context;
+    final result = await showDialog<bool>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (ctx2) => AlertDialog(
+        title: Text(title),
+        content: Text(question),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx2, false), child: const Text('No')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx2, true), child: const Text('Yes')),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _playSfx(String filename, {double volume = 0.9}) async {
+    if (_muted) return;
+    try {
+      await _sfxPlayer.stop();
+      await _sfxPlayer.play(AssetSource('audio/$filename'), volume: volume);
+    } catch (_) {}
+  }
+
+  // called by player hazard check
+  Future<void> loseGame(String reason) async {
+    if (_gameOver) return;
+    _gameOver = true;
+    await _playSfx('incorrect.aiff');
+
+    // unlock input so dialog can be tapped
+    lockInput(false);
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ouch!'),
+        content: Text(reason),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _resetGame();
+            },
+            child: const Text('Play again'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              onExitToMenu?.call();
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+    Future<void> winGame() async {
+    if (_winDialogShown) return;
+    _winDialogShown = true;
+
+    // short ding
+    await _playSfx('correct.mp3');
+    // bigger win sound
+    await _playSfx('win.wav');
+
+    // confetti overlay
+    add(WinConfetti());
+
+    // unlock input so dialog is tap-able
+    lockInput(false);
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Great job!'),
+        content: const Text('You completed all the after-outage tasks.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _resetGame();
+            },
+            child: const Text('Play again'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              onExitToMenu?.call();
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _resetGame() {
+    // reset checklist
+    checklist.powerRestored = false;
+    checklist.basementResolved = false;
+    checklist.fridgeChecked = false;
+    checklist.frontYardVideo = false;
+    checklist.sidewalkResolved = false;
+    checklist.neighborChecked = false;
+    checklist.livingGlassCleared = false;
+    checklist.leakyHydrantReported = false;
+
+    // reset game-over / win flags
+    _gameOver = false;
+    _winDialogShown = false;
+
+    // reset random states + “ignored” flags
+    _visitedSidewalk = false;
+    _sidewalkDownedLine = false;
+    _sidewalkIgnored = false;
+    _hydrantLeaking = true;
+    _visitedBasement = false;
+    _basementFlooded = false;
+    _basementIgnored = false;
+    _livingGlassPresent = true;
+    _livingGlassIgnored = false;
+
+    // reset front-lawn debris so video task is fresh
+    _frontLawnHasDebris = true;
+
+    // go back to living room
+    _room = Room.living;
+    roomLabel.value = _roomLabel(_room);
+
+    // rebuild room + force living-room lamp OFF
+    _clearInteractives();
+    _buildInteractivesFor(_room);
+    final rb = _roomBox();
+    if (rb != null) {
+      rb.room = _room;
+      rb.lampOn = false;
+      rb.recomputeSolids();
+    }
+
+    // put player in the same open spot as first time
+    _player.position = Vector2(size.x * 0.22, size.y * 0.40);
+
+    // make sure input is unlocked
+    lockInput(false);
+
+    // clear fades
+    _fade.fadeInFromBlack(duration: 0.15);
+
+    // tell user
+    _hud.show('Game reset — start by checking the lamp.');
+
+    // safety: if we somehow spawned on a solid, try a few backups
+    {
+      const double hb = 16.0;
+      Rect hitboxAt(Vector2 p) =>
+          Rect.fromCenter(center: Offset(p.x, p.y), width: hb, height: hb);
+      final solidRects = solids;
+      Vector2 p = _player.position.clone();
+      bool collides(Rect r) => solidRects.any((s) => r.overlaps(s));
+
+      if (collides(hitboxAt(p))) {
+        final candidates = <Vector2>[
+          Vector2(size.x * 0.30, size.y * 0.35),
+          Vector2(size.x * 0.25, size.y * 0.55),
+          Vector2(size.x * 0.40, size.y * 0.35),
+        ];
+        for (final c in candidates) {
+          if (!collides(hitboxAt(c))) {
+            _player.position = c;
+            break;
+          }
+        }
+      }
+    }
+  }
 }
 
-// ---------------- Components ----------------
+// Components
 
 enum _Facing { up, left, down, right }
 
@@ -454,7 +1435,6 @@ class Player extends SpriteAnimationGroupComponent<_Facing>
       final sheet = SpriteSheet(image: image, srcSize: Vector2(_tile, _tile));
       const step = 0.12;
 
-      // Assuming rows: 0=up, 1=right, 2=down, 3=left
       _walkUp    = sheet.createAnimation(row: 0, from: 0, to: 2, stepTime: step);
       _walkLeft  = sheet.createAnimation(row: 3, from: 0, to: 2, stepTime: step);
       _walkDown  = sheet.createAnimation(row: 2, from: 0, to: 2, stepTime: step);
@@ -515,7 +1495,7 @@ class Player extends SpriteAnimationGroupComponent<_Facing>
       }
     }
 
-    // Collision: revert if overlapping any solid
+    // revert if overlapping any solid
     if (_collidesWithSolids()) {
       position.setFrom(old);
     }
@@ -525,20 +1505,64 @@ class Player extends SpriteAnimationGroupComponent<_Facing>
     final maxY = gameRef.size.y - 16;
     position.x = position.x.clamp(16, maxX);
     position.y = position.y.clamp(16, maxY);
+
+    // rectangle-based hazard checks
+    final game = gameRef;
+    final zones = game.killZones;
+    if (zones.isNotEmpty) {
+      const double hb = 16.0;
+      final me = Rect.fromCenter(
+        center: Offset(position.x, position.y),
+        width: hb,
+        height: hb,
+      );
+      for (final z in zones) {
+        if (me.overlaps(z)) {
+          // Basement water
+          if (game._room == Room.basement &&
+              game.basementFlooded &&
+              !game.checklist.basementResolved) {
+            game.loseGame('You walked into a flooded basement with live power.');
+            return;
+          }
+          // Sidewalk downed line
+          if (game._room == Room.sidewalk &&
+              game.sidewalkDownedLine &&
+              !game.checklist.sidewalkResolved) {
+            game.loseGame('You touched a downed power line.');
+            return;
+          }
+          // Living room broken glass
+          if (game._room == Room.living &&
+              game._livingGlassPresent &&
+              game._livingGlassIgnored) {
+            game.loseGame('Ouch! You stepped on broken glass.');
+            return;
+          }
+        }
+      }
+    }
   }
 
   bool _collidesWithSolids() {
-    final game = gameRef as SaferAdventureGame;
-    if (game.solids.isEmpty) return false;
+    final game = gameRef;
+    if (game._namedSolids.isEmpty) {
+      game._notifyBump(null);
+      return false;
+    }
     const double hb = 16.0;
     final r = Rect.fromCenter(
       center: Offset(position.x, position.y),
       width: hb,
       height: hb,
     );
-    for (final s in game.solids) {
-      if (r.overlaps(s)) return true;
+    for (final z in game._namedSolids) {
+      if (r.overlaps(z.rect)) {
+        game._notifyBump(z.name);
+        return true;
+      }
     }
+    game._notifyBump(null);
     return false;
   }
 
@@ -557,8 +1581,26 @@ class Player extends SpriteAnimationGroupComponent<_Facing>
 class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
   Room room;
 
-  // Lamp state (for living room)
+  Rect? currentLivingGlassRect;
+
+  // Lamp state
   bool lampOn = false;
+
+  // For hazard placement
+  Rect? _sidewalkGrassRectForHazard;
+
+  // Room background images
+  ui.Image? _livingBgBroken;
+  ui.Image? _livingBgClean;
+
+  ui.Image? _frontLawnBgDebris;
+  ui.Image? _frontLawnBgClean;
+
+  ui.Image? _sidewalkBg;
+  ui.Image? _neighborBg;
+  ui.Image? _kitchenBg;
+  ui.Image? _basementBg;
+
 
   RoomBox({required this.room}) {
     priority = 0;
@@ -571,6 +1613,31 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     size = gameRef.size;
     position = Vector2.zero();
     recomputeSolids();
+
+    void _drawImageIntoInner(Canvas canvas, ui.Image img, Rect inner) {
+      final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+      final clip = RRect.fromRectAndRadius(inner, const Radius.circular(10));
+      final paint = Paint()
+        ..isAntiAlias = false
+        ..filterQuality = FilterQuality.none;
+      canvas.save();
+      canvas.clipRRect(clip);
+      canvas.drawImageRect(img, src, inner, paint);
+      canvas.restore();
+    }
+    try {
+      _livingBgBroken    = await gameRef.images.load('assets/images/livingRoomBrokenWindow.png');
+      _livingBgClean     = await gameRef.images.load('assets/images/livingRoomClean.png');
+
+      _frontLawnBgDebris = await gameRef.images.load('assets/images/frontLawnDebris.png');
+      _frontLawnBgClean  = await gameRef.images.load('assets/images/frontLawnClean.png');
+
+      _sidewalkBg        = await gameRef.images.load('assets/images/sidewalk.png');
+      _neighborBg        = await gameRef.images.load('assets/images/neighborsHouse.png');
+      _kitchenBg         = await gameRef.images.load('assets/images/kitchen.png');
+      _basementBg        = await gameRef.images.load('assets/images/basement.png');
+    } catch (_) {
+    }
   }
 
   @override
@@ -589,6 +1656,13 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
   @override
   void render(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
+
+    // clear per-frame kill-zones; rooms will repopulate as needed
+    (gameRef).setKillZones(const []);
+
+    // also clear named solids/kills so they don't leak across rooms
+    (gameRef).setNamedSolids(const []);
+    (gameRef).setNamedKills(const []);
 
     switch (room) {
       case Room.living:
@@ -610,24 +1684,9 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
         _drawBasement(canvas, rect);
         break;
     }
-
-    // Room label (top-left)
-    final label = switch (room) {
-      Room.living    => 'Living Room',
-      Room.basement  => 'Basement',
-      Room.frontLawn => 'Front Lawn',
-      Room.sidewalk  => 'Sidewalk',
-      Room.neighbor  => 'Neighbor’s House',
-      Room.kitchen   => 'Kitchen',
-    };
-    final tp = TextPainter(
-      text: TextSpan(text: label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, const Offset(12, 10));
   }
 
-  // ---------- Drawing helpers ----------
+  // Drawing helpers
 
   Color _paletteFor(Room r) => switch (r) {
         Room.living    => const Color(0xFF1F2A44),
@@ -643,83 +1702,276 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(12)), Paint()..color = Colors.white24);
   }
 
-  // ---------- Living Room (unchanged look; no grid) ----------
+  // Living Room
   void _drawLivingRoom(Canvas canvas, Rect rect) {
-    // Walls + border
+    // Local named zones just for this frame
+    final namedSolids = <({Rect rect, String name})>[];
+    final namedKills  = <({Rect rect, String name})>[];
+
+    // Outer walls/border
     _drawBorder(canvas, rect, const Color(0xFF222B3F));
 
     // Baseboard inset
     const inset = 14.0;
     final inner = rect.deflate(inset);
 
-    // Wood floor (clean)
-    final floor = RRect.fromRectAndRadius(inner, const Radius.circular(10));
-    canvas.drawRRect(floor, Paint()..color = const Color(0xFF3A2E24));
+    // Choose broken vs clean based on game state
+    final game = gameRef;
+    final ui.Image? livingImg = game._livingGlassPresent ? _livingBgBroken : _livingBgClean;
 
-    // Doors (must match Doorway rectangles)
-    final topDoorRect    = Rect.fromLTWH(size.x / 2 - 20, 20, 40, 28);                // to Front Lawn
-    final rightDoorRect  = Rect.fromLTWH(size.x - 56, size.y / 2 - 20, 40, 40);       // to Kitchen
-    final bottomDoorRect = Rect.fromLTWH(size.x / 2 - 20, size.y - 48, 40, 28);       // to Basement
+    if (livingImg != null) {
+      final src = Rect.fromLTWH(0, 0, livingImg.width.toDouble(), livingImg.height.toDouble());
+      final dest = inner;
+      final paint = Paint()
+        ..isAntiAlias = false
+        ..filterQuality = FilterQuality.none;
+      final clip = RRect.fromRectAndRadius(inner, const Radius.circular(10));
+      canvas.save();
+      canvas.clipRRect(clip);
+      canvas.drawImageRect(livingImg, src, dest, paint);
+      canvas.restore();
+    } else {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(inner, const Radius.circular(10)),
+        Paint()..color = const Color(0xFF3A2E24),
+      );
+    }
+
+    // Doors
+    final topDoorRect    = Rect.fromLTWH(size.x / 2 - 20, 20, 40, 28);
+    final rightDoorRect  = Rect.fromLTWH(size.x - 56, size.y / 2 - 20, 40, 40);
+    final bottomDoorRect = Rect.fromLTWH(size.x / 2 - 20, size.y - 48, 40, 28);
     _drawFrontDoor(canvas, topDoorRect);
     _drawInteriorDoorway(canvas, rightDoorRect);
     _drawStairsDown(canvas, bottomDoorRect);
 
-    // Rug
+    // living tunables
+    // broken glass
+    bool   L_GLASS_USE_PERCENT = false;
+
+    // Percent mode
+    double L_GLASS_LEFT_PCT = 0.03;
+    double L_GLASS_TOP_PCT  = 0.03;
+    double L_GLASS_W_PCT    = 0.22;
+    double L_GLASS_H_PCT    = 0.18;
+
+    // Pixel mode
+    double L_GLASS_LEFT_PX  = 8.0;
+    double L_GLASS_TOP_PX   = 8.0;
+    double L_GLASS_WIDTH_PX = 50.0;
+    double L_GLASS_HEIGHT_PX= 35.0;
+
+    // Rug anchor
+    double L_RUG_CX_OFFSET   = 10.0;
+    double L_RUG_CY_OFFSET   = 28.0; 
+    double L_RUG_W_FACTOR    = 0.46;
+    double L_RUG_H_FACTOR    = 0.34;
+
+    // Lamp relative to rug
+    double L_LAMP_RIGHT_PAD  = 26.0;
+    double L_LAMP_UP_PAD     = 10.0;
+
+    // Plants
+    double L_PLANT_W      = inner.width * 0.20;
+    double L_PLANT_H      = 62.0;
+    double L_PLANT_PAD_X  = 8.0;
+    double L_PLANT_PAD_Y  = 10.0;
+
+    // TV on left, L-couch to the right
+    // TV stand
+    double L_TV_W            = 14.0;
+    double L_TV_H_FACTOR     = 0.15;
+    double L_TV_LEFT_PAD     = 1.0;
+    double L_TV_Y_FACTOR     = -0.22;
+
+    // couch
+    double L_CO_H_W        = 148.0;
+    double L_CO_H_H        = 30.0;
+    double L_CO_V_W        = 18.0;
+    double L_CO_V_H        = 160.0;  //
+
+    // Horizontal piece
+    bool   L_CO_H_ANCHOR_BY_TV = false;
+
+    // If anchored by TV:
+    double L_CO_H_GAP_FROM_TV  = 36.0;
+    double L_CO_H_Y_OFFSET     = -30.0;
+
+    // If absolute:
+    double L_CO_H_ABS_X        = 34.0;
+    double L_CO_H_ABS_Y        = 85.0;
+
+    // Vertical piece
+    bool   L_CO_V_RELATIVE_TO_H = false;
+
+    // If relative
+    double L_CO_V_REL_DX       = -12.0;
+    double L_CO_V_REL_DY       = 30.0;
+
+    // If absolute
+    double L_CO_V_ABS_X        = 160.0;
+    double L_CO_V_ABS_Y        = 110.0;
+
+    // Table
+    double L_TABLE_W_FACTOR  = 0.80; 
+    double L_TABLE_H         = 28.0;
+    double L_TABLE_Y_SHIFT   = 50.0;
+
+    // Chairs
+    double L_CHAIR_W         = 20.0;
+    double L_CHAIR_H         = 15.0;
+    int    L_CHAIR_COUNT     = 3; 
+    double L_CHAIR_EDGE_INSET= 35.0;
+    double L_CHAIR_PUSH_IN   = 0.0;
+
+
+    // Derived layout
     final rugRect = Rect.fromCenter(
-      center: Offset(inner.center.dx + 10.0, inner.center.dy + 18.0),
-      width: inner.width * 0.46,
-      height: inner.height * 0.34,
+      center: Offset(inner.center.dx + L_RUG_CX_OFFSET, inner.center.dy + L_RUG_CY_OFFSET),
+      width: inner.width * L_RUG_W_FACTOR,
+      height: inner.height * L_RUG_H_FACTOR,
     );
-    final rug = RRect.fromRectAndRadius(rugRect, const Radius.circular(22));
-    canvas.drawRRect(rug, Paint()..color = const Color(0xFF2C5F6B));
-    canvas.drawRRect(rug, Paint()..color = const Color(0x22FFFFFF));
-
-    // Coffee table (solid)
-    final coffeeRect = Rect.fromCenter(
-      center: Offset(rugRect.center.dx + 4.0, rugRect.center.dy + 2.0),
-      width: rugRect.width * 0.38,
-      height: rugRect.height * 0.30,
-    );
-    final coffee = RRect.fromRectAndRadius(coffeeRect, const Radius.circular(12));
-    canvas.drawShadow(Path()..addRRect(coffee), Colors.black, 4, false);
-    canvas.drawRRect(coffee, Paint()..color = const Color(0xFF6B4E32));
-
-    // Vertical couch (solid)
-    final innerRect = inner;
-    final couchRect = Rect.fromCenter(
-      center: Offset(innerRect.left + 72.0, rugRect.center.dy),
-      width: 58.0,
-      height: 150.0,
-    );
-    final couch = RRect.fromRectAndRadius(couchRect, const Radius.circular(12));
-    canvas.drawShadow(Path()..addRRect(couch), Colors.black, 6, false);
-    canvas.drawRRect(couch, Paint()..color = const Color(0xFF2C6AD4));
-    final seam = Paint()..color = const Color(0x33FFFFFF);
-    canvas.drawLine(
-      Offset(couchRect.center.dx, couchRect.top + 10.0),
-      Offset(couchRect.center.dx, couchRect.bottom - 10.0),
-      seam,
-    );
-
-    // Floor lamp (on/off)
-    final lampBase = Offset(rugRect.right + 26.0, rugRect.top - 10.0);
+    final lampBase = Offset(rugRect.right + L_LAMP_RIGHT_PAD, rugRect.top - L_LAMP_UP_PAD);
     _drawFloorLamp(canvas, baseCenter: lampBase, on: lampOn);
 
-    // Register solids (couch + coffee)
-    (gameRef as SaferAdventureGame).setSolids([
-      couchRect.deflate(4.0),
-      coffeeRect.deflate(6.0),
-    ]);
+    // Broken glass geometry
+    final Rect glassRect = L_GLASS_USE_PERCENT
+        ? Rect.fromLTWH(
+            inner.left + inner.width  * L_GLASS_LEFT_PCT,
+            inner.top  + inner.height * L_GLASS_TOP_PCT,
+            inner.width  * L_GLASS_W_PCT,
+            inner.height * L_GLASS_H_PCT,
+          )
+        : Rect.fromLTWH(
+            inner.left + L_GLASS_LEFT_PX,
+            inner.top  + L_GLASS_TOP_PX,
+            L_GLASS_WIDTH_PX,
+            L_GLASS_HEIGHT_PX,
+          );
 
-    // LIGHT THE WHOLE ROOM WHEN LAMP IS ON
+    // Expose to game so SaferAdventureGame can hug sweep "doors" to its edges
+    currentLivingGlassRect = glassRect;
+
+    // Register kill zone only while glass is present
+    if (game._livingGlassPresent) {
+      namedKills.add((rect: glassRect, name: 'Broken Glass'));
+    }
+
+
+    // Plants
+    // bottom-left
+    namedSolids.add((
+      rect: Rect.fromLTWH(
+        inner.left + L_PLANT_PAD_X,
+        inner.bottom - L_PLANT_PAD_Y - L_PLANT_H,
+        L_PLANT_W,
+        L_PLANT_H,
+      ),
+      name: 'Plant',
+    ));
+
+    // bottom-right
+    namedSolids.add((
+      rect: Rect.fromLTWH(
+        inner.right - L_PLANT_PAD_X - L_PLANT_W,
+        inner.bottom - L_PLANT_PAD_Y - L_PLANT_H,
+        L_PLANT_W,
+        L_PLANT_H,
+      ),
+      name: 'Plant',
+    ));
+
+    // TV
+    final double tvW = L_TV_W;
+    final double tvH = inner.height * L_TV_H_FACTOR;
+    final double tvX = inner.left + L_TV_LEFT_PAD;
+    final double tvY = inner.center.dy + inner.height * L_TV_Y_FACTOR;
+    final Rect tvRect = Rect.fromLTWH(tvX, tvY, tvW, tvH);
+    namedSolids.add((rect: tvRect, name: 'TV Stand'));
+
+    // couch pieces
+
+    // Horizontal piece
+    late double coH_X, coH_Y;
+    if (L_CO_H_ANCHOR_BY_TV) {
+      coH_X = tvRect.right + L_CO_H_GAP_FROM_TV;
+      coH_Y = inner.center.dy + L_CO_H_Y_OFFSET;
+    } else {
+      coH_X = inner.left + L_CO_H_ABS_X;
+      coH_Y = inner.top  + L_CO_H_ABS_Y;
+    }
+    final Rect couchHorizontal = Rect.fromLTWH(coH_X, coH_Y, L_CO_H_W, L_CO_H_H);
+    namedSolids.add((rect: couchHorizontal, name: 'Couch'));
+
+    // Vertical piece
+    late double coV_X, coV_Y;
+    if (L_CO_V_RELATIVE_TO_H) {
+      coV_X = couchHorizontal.left   + L_CO_V_REL_DX;
+      coV_Y = couchHorizontal.bottom + L_CO_V_REL_DY;
+    } else {
+      coV_X = inner.left + L_CO_V_ABS_X;
+      coV_Y = inner.top  + L_CO_V_ABS_Y;
+    }
+    final Rect couchVertical = Rect.fromLTWH(coV_X, coV_Y, L_CO_V_W, L_CO_V_H);
+    namedSolids.add((rect: couchVertical, name: 'Couch'));
+
+
+
+    // Dining table
+    final double tableW = rugRect.width * L_TABLE_W_FACTOR;
+    final double tableY = rugRect.center.dy + L_TABLE_Y_SHIFT;
+
+    final Rect tableRect = Rect.fromCenter(
+      center: Offset(rugRect.center.dx - 6, tableY),
+      width: tableW,
+      height: L_TABLE_H,
+    );
+    namedSolids.add((rect: tableRect, name: 'Dining Table'));
+
+    // 6 Chairs 
+    final double chairW = L_CHAIR_W;
+    final double chairH = L_CHAIR_H;
+
+    // positions spread evenly across the table width with a small edge inset
+    final double leftX  = tableRect.left  + L_CHAIR_EDGE_INSET;
+    final double rightX = tableRect.right - L_CHAIR_EDGE_INSET;
+    final List<double> chairXs = [
+      leftX,
+      (leftX + rightX) / 2,
+      rightX,
+    ];
+
+    // Y centers that tuck under the table edge for a pushed in look
+    final double topChairsCenterY    = tableRect.top    - (chairH / 2 - L_CHAIR_PUSH_IN);
+    final double bottomChairsCenterY = tableRect.bottom + (chairH / 2 - L_CHAIR_PUSH_IN);
+
+    // helper to build a chair rect by center
+    Rect _chairAt(double cx, double cy) =>
+        Rect.fromCenter(center: Offset(cx, cy), width: chairW, height: chairH);
+
+    // Top row
+    for (int i = 0; i < L_CHAIR_COUNT; i++) {
+      namedSolids.add((rect: _chairAt(chairXs[i], topChairsCenterY), name: 'Chair'));
+    }
+
+    // Bottom row 
+    for (int i = 0; i < L_CHAIR_COUNT; i++) {
+      namedSolids.add((rect: _chairAt(chairXs[i], bottomChairsCenterY), name: 'Chair'));
+    }
+
+    // Register for collisions + debug overlay + UI label
+    (gameRef).setNamedSolids(namedSolids);
+    (gameRef).setNamedKills(namedKills);
+
+    // light entire room
     if (lampOn) {
       final softRoomLight = Paint()
         ..blendMode = BlendMode.plus
-        ..color = const Color(0x33FFF7C2); // warm additive wash
+        ..color = const Color(0x33FFF7C2);
       canvas.drawRRect(RRect.fromRectAndRadius(inner, const Radius.circular(10)), softRoomLight);
     }
 
-    // Gentle vignette
+    // Gentle vignette to avoid flat look
     final vignette = Paint()
       ..shader = RadialGradient(
         center: Alignment.topCenter,
@@ -730,36 +1982,62 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     canvas.drawRRect(RRect.fromRectAndRadius(inner, const Radius.circular(10)), vignette);
   }
 
-  // ---------- Front Lawn ----------
+
+  // Front Lawn
   void _drawFrontLawn(Canvas canvas, Rect rect) {
     _drawBorder(canvas, rect, const Color(0xFF1A2A1A));
     const inset = 14.0;
     final inner = rect.deflate(inset);
 
-    // Lawn
-    final lawn = RRect.fromRectAndRadius(inner, const Radius.circular(10));
-    canvas.drawRRect(lawn, Paint()..color = const Color(0xFF2F6E2F));
+    final game = gameRef;
+    final ui.Image? lawnImg = game._frontLawnHasDebris ? _frontLawnBgDebris : _frontLawnBgClean;
 
-    // Street + sidewalk band at the top edge
-    final streetH = (inner.height * 0.10).clamp(36.0, 64.0);
-    final sidewalkH = (streetH * 0.38);
-    final streetRect   = Rect.fromLTWH(inner.left, inner.top, inner.width, streetH);
-    final sidewalkRect = Rect.fromLTWH(inner.left, inner.top, inner.width, sidewalkH);
-    canvas.drawRect(streetRect, Paint()..color = const Color(0xFF2E2E33));
-    canvas.drawRect(sidewalkRect, Paint()..color = const Color(0xFFBFC5C8));
+    if (lawnImg != null) {
+      final src = Rect.fromLTWH(0, 0, lawnImg.width.toDouble(), lawnImg.height.toDouble());
+      final clip = RRect.fromRectAndRadius(inner, const Radius.circular(10));
+      final paint = Paint()
+        ..isAntiAlias = false
+        ..filterQuality = FilterQuality.none;
+      canvas.save();
+      canvas.clipRRect(clip);
+      canvas.drawImageRect(lawnImg, src, inner, paint);
+      canvas.restore();
+    } else {
+      // Lawn
+      final lawn = RRect.fromRectAndRadius(inner, const Radius.circular(10));
+      canvas.drawRRect(lawn, Paint()..color = const Color(0xFF2F6E2F));
+      // Street + sidewalk band at the top edge
+      final streetH = (inner.height * 0.10).clamp(36.0, 64.0);
+      final sidewalkH = (streetH * 0.38);
+      final streetRect   = Rect.fromLTWH(inner.left, inner.top, inner.width, streetH);
+      final sidewalkRect = Rect.fromLTWH(inner.left, inner.top, inner.width, sidewalkH);
+      canvas.drawRect(streetRect, Paint()..color = const Color(0xFF2E2E33));
+      canvas.drawRect(sidewalkRect, Paint()..color = const Color(0xFFBFC5C8));
+      // House band + bottom door visual
+      final houseBandH = (inner.height * 0.14).clamp(40.0, 90.0);
+      final houseBand = Rect.fromLTWH(inner.left, inner.bottom - houseBandH, inner.width, houseBandH);
+      canvas.drawRect(houseBand, Paint()..color = const Color(0xFF3A4458));
+      // Stone path
+      final bottomDoorRect = Rect.fromLTWH(size.x / 2 - 20, size.y - 48, 40, 28);
+      final sidewalkRectForPath = Rect.fromLTWH(inner.left, inner.top, inner.width, sidewalkH);
+      final pathPaint = Paint()..color = const Color(0xFFD8D2C8).withOpacity(0.80);
+      final pathLeft  = inner.center.dx - 26;
+      final pathRight = inner.center.dx + 26;
+      final pathTop   = sidewalkRectForPath.bottom + 6;
+      final pathBottom= bottomDoorRect.top - 4;
+      final pathRect  = RRect.fromRectAndRadius(
+        Rect.fromLTRB(pathLeft, pathTop, pathRight, pathBottom),
+        const Radius.circular(18),
+      );
+      canvas.drawRRect(pathRect, pathPaint);
+    }
 
-    // Top-right "door" visual to Sidewalk (must match topRightDoor)
-    final trDoorRect = Rect.fromLTWH(size.x - 80, 20, 60, 28);
+    // Door overlays
+    final trDoorRect = Rect.fromLTWH(size.x - 80, 52, 60, 28);
     canvas.drawRRect(
       RRect.fromRectAndRadius(trDoorRect.inflate(2), const Radius.circular(6)),
       Paint()..color = Colors.white.withOpacity(0.12),
     );
-
-    // House façade at bottom + front door (to Living)
-    final houseBandH = (inner.height * 0.14).clamp(40.0, 90.0);
-    final houseBand = Rect.fromLTWH(inner.left, inner.bottom - houseBandH, inner.width, houseBandH);
-    canvas.drawRect(houseBand, Paint()..color = const Color(0xFF3A4458));
-
     final bottomDoorRect = Rect.fromLTWH(size.x / 2 - 20, size.y - 48, 40, 28);
     canvas.drawRRect(
       RRect.fromRectAndRadius(bottomDoorRect, const Radius.circular(6)),
@@ -770,20 +2048,52 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
       Paint()..color = const Color(0xFF252D3A),
     );
 
-    // Stone path from door up toward sidewalk (center-ish)
-    final pathPaint = Paint()..color = const Color(0xFFD8D2C8).withOpacity(0.80);
-    final pathLeft  = inner.center.dx - 26;
-    final pathRight = inner.center.dx + 26;
-    final pathTop   = sidewalkRect.bottom + 6;
-    final pathBottom= bottomDoorRect.top - 4;
-    final pathRect  = RRect.fromRectAndRadius(
-      Rect.fromLTRB(pathLeft, pathTop, pathRight, pathBottom),
-      const Radius.circular(18),
-    );
-    canvas.drawRRect(pathRect, pathPaint);
+    // Collision solids
+    final namedSolids = <({Rect rect, String name})>[];
 
-    // Register solids (none here)
-    (gameRef as SaferAdventureGame).setSolids(const []);
+    // Left tree 
+    final leftTreeRect = Rect.fromCircle(
+      center: Offset(
+        inner.left + inner.width * 0.20,
+        inner.top + inner.height * 0.65,
+      ),
+      radius: inner.width * 0.08,
+    );
+    namedSolids.add((rect: leftTreeRect, name: 'Tree'));
+
+    // Right tree – higher middle
+    final rightTreeRect = Rect.fromCircle(
+      center: Offset(
+        inner.left + inner.width * 0.77,
+        inner.top + inner.height * 0.33,
+      ),
+      radius: inner.width * 0.08,
+    );
+    namedSolids.add((rect: rightTreeRect, name: 'Tree'));
+
+    // Bottom bushes
+    final double bushBandHeight = inner.height * 0.13;
+    final double bushTop        = inner.bottom - bushBandHeight;
+    final double gapHalfWidth   = inner.width * 0.09;
+
+    final Rect leftBushes = Rect.fromLTRB(
+      inner.left,
+      bushTop + 4,
+      inner.center.dx - gapHalfWidth,
+      inner.bottom,
+    );
+    namedSolids.add((rect: leftBushes, name: 'Bushes'));
+
+    final Rect rightBushes = Rect.fromLTRB(
+      inner.center.dx + gapHalfWidth,
+      bushTop,
+      inner.right,
+      inner.bottom,
+    );
+    namedSolids.add((rect: rightBushes, name: 'Bushes'));
+
+    // Register so collisions + bump label work
+    game.setNamedSolids(namedSolids);
 
     // Soft vignette
     final vignette = Paint()
@@ -796,40 +2106,152 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     canvas.drawRRect(RRect.fromRectAndRadius(inner, const Radius.circular(10)), vignette);
   }
 
-  // ---------- Sidewalk ----------
+  // Sidewalk
   void _drawSidewalk(Canvas canvas, Rect rect) {
     _drawBorder(canvas, rect, const Color(0xFF1E2B38));
     const inset = 14.0;
     final inner = rect.deflate(inset);
 
-    // Layout bands: street (top), sidewalk path (center), grass (bottom)
-    final streetH = (inner.height * 0.24).clamp(56.0, 120.0);
-    final grassH  = (inner.height * 0.30).clamp(70.0, 160.0);
-    final pathH   = inner.height - streetH - grassH;
+    final game = gameRef;
+    final namedSolids = <({Rect rect, String name})>[];
 
-    final streetRect = Rect.fromLTWH(inner.left, inner.top, inner.width, streetH);
-    final pathRect   = Rect.fromLTWH(inner.left, streetRect.bottom, inner.width, pathH);
-    final grassRect  = Rect.fromLTWH(inner.left, pathRect.bottom, inner.width, grassH);
+    // Shared geometry
+    final double streetH = (inner.height * 0.24).clamp(56.0, 120.0);
+    final double grassH  = (inner.height * 0.30).clamp(70.0, 160.0);
+    final double pathH   = inner.height - streetH - grassH;
 
-    // Street
-    canvas.drawRect(streetRect, Paint()..color = const Color(0xFF2E2E33));
+    final Rect streetRect = Rect.fromLTWH(inner.left, inner.top, inner.width, streetH);
+    final Rect pathRect   = Rect.fromLTWH(inner.left, streetRect.bottom, inner.width, pathH);
+    final Rect grassRect  = Rect.fromLTWH(inner.left, pathRect.bottom, inner.width, grassH);
 
-    // Sidewalk path (concrete with joints)
-    final sidewalkPaint = Paint()..color = const Color(0xFFBFC5C8);
-    canvas.drawRect(pathRect, sidewalkPaint);
-    final joint = Paint()
-      ..color = Colors.black.withOpacity(0.12)
-      ..strokeWidth = 2;
-    for (double x = pathRect.left + 24; x < pathRect.right; x += 48) {
-      canvas.drawLine(Offset(x, pathRect.top + 4), Offset(x, pathRect.bottom - 4), joint);
+    _sidewalkGrassRectForHazard = grassRect;
+
+    // Background
+    if (_sidewalkBg != null) {
+      final src = Rect.fromLTWH(
+        0,
+        0,
+        _sidewalkBg!.width.toDouble(),
+        _sidewalkBg!.height.toDouble(),
+      );
+      final clip = RRect.fromRectAndRadius(inner, const Radius.circular(10));
+      final paint = Paint()
+        ..isAntiAlias = false
+        ..filterQuality = FilterQuality.none;
+      canvas.save();
+      canvas.clipRRect(clip);
+      canvas.drawImageRect(_sidewalkBg!, src, inner, paint);
+      canvas.restore();
+    } else {
+      canvas.drawRect(streetRect, Paint()..color = const Color(0xFF2E2E33));
+      canvas.drawRect(pathRect,   Paint()..color = const Color(0xFFBFC5C8));
+      final joint = Paint()
+        ..color = Colors.black.withOpacity(0.12)
+        ..strokeWidth = 2;
+      for (double x = pathRect.left + 24; x < pathRect.right; x += 48) {
+        canvas.drawLine(
+          Offset(x, pathRect.top + 4),
+          Offset(x, pathRect.bottom - 4),
+          joint,
+        );
+      }
+      canvas.drawRect(grassRect, Paint()..color = const Color(0xFF2F6E2F));
     }
 
-    // Grass
-    canvas.drawRect(grassRect, Paint()..color = const Color(0xFF2F6E2F));
+    // Draw leaky fire hydrant
+    {
+      // Position roughly matched to hotspot band
+      final Offset hydrantCenter = Offset(
+        pathRect.left + pathRect.width * 0.70,
+        grassRect.top - 20,
+      );
 
-    // Left & Right door overlays (must match Doorway rects)
-    final leftDoorRect  = Rect.fromLTWH(16, size.y / 2 - 20, 40, 40);          // to Front Lawn
-    final rightDoorRect = Rect.fromLTWH(size.x - 56, size.y / 2 - 20, 40, 40); // to Neighbor
+      final Paint hydrantPaint = Paint()..color = const Color(0xFFB71C1C);
+      final Paint metalPaint   = Paint()..color = const Color(0xFF5D4037);
+      final Paint waterPaint   = Paint()..color = const Color(0xAA4FC3F7);
+
+      // Body
+      final Rect body = Rect.fromCenter(
+        center: hydrantCenter.translate(0, 4),
+        width: 18,
+        height: 28,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(body, const Radius.circular(4)),
+        hydrantPaint,
+      );
+
+      // Top cap
+      final Rect cap = Rect.fromCenter(
+        center: hydrantCenter.translate(0, -10),
+        width: 22,
+        height: 10,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(cap, const Radius.circular(4)),
+        hydrantPaint,
+      );
+
+      // Side nozzles
+      final Rect leftNozzle = Rect.fromCenter(
+        center: hydrantCenter.translate(-14, 0),
+        width: 10,
+        height: 8,
+      );
+      final Rect rightNozzle = Rect.fromCenter(
+        center: hydrantCenter.translate(14, 0),
+        width: 10,
+        height: 8,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(leftNozzle, const Radius.circular(3)),
+        hydrantPaint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rightNozzle, const Radius.circular(3)),
+        hydrantPaint,
+      );
+
+      // Bolts
+      canvas.drawCircle(
+        hydrantCenter.translate(-14, 0),
+        2,
+        metalPaint,
+      );
+      canvas.drawCircle(
+        hydrantCenter.translate(14, 0),
+        2,
+        metalPaint,
+      );
+
+      // Water puddle only if the leak is still active
+      if (game.hydrantLeaking) {
+        final Rect puddle = Rect.fromCenter(
+          center: hydrantCenter.translate(10, 18),
+          width: 26,
+          height: 10,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(puddle, const Radius.circular(6)),
+          waterPaint,
+        );
+      }
+      // Fire Hydrant Collision Dead Zone
+      final double hydrantDZ_W = 40.0;
+      final double hydrantDZ_H = 40.0;
+
+      final Rect hydrantDZ = Rect.fromCenter(
+        center: hydrantCenter,
+        width: hydrantDZ_W,
+        height: hydrantDZ_H,
+      );
+      namedSolids.add((rect: hydrantDZ, name: 'Hydrant'));
+    }
+
+
+    // Door overlays 
+    final leftDoorRect  = Rect.fromLTWH(16, size.y / 2 - 20, 40, 40);
+    final rightDoorRect = Rect.fromLTWH(size.x - 56, size.y / 2 - 20, 40, 40);
     for (final r in [leftDoorRect, rightDoorRect]) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(r, const Radius.circular(8)),
@@ -837,18 +2259,59 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
       );
     }
 
-    // Downed power line chance (first visit determined by gameRef)
-    final game = gameRef as SaferAdventureGame;
+    // road dead zone
+    final Rect roadRect = Rect.fromLTRB(
+      rect.left,
+      rect.top,
+      rect.right,
+      leftDoorRect.top - 15,
+    );
+    namedSolids.add((rect: roadRect, name: 'Road'));
+
+    // Smaller hazard kill zone + fence dead zone 
     if (game.sidewalkDownedLine) {
       _drawDownedLine(canvas, grassRect);
     }
 
-    // Register solids (none for now)
-    game.setSolids(const []);
+    // Smaller kill band directly under the wire, not the whole grass
+    final double lethalLeft   = grassRect.left + grassRect.width * 0.15;
+    final double lethalRight  = grassRect.right - grassRect.width * 0.12;
+    final double lethalTop    = grassRect.top + grassRect.height * 0.24;
+    final double lethalBottom = grassRect.top + grassRect.height * 0.50;
+
+    final Rect lethal = Rect.fromLTRB(
+      lethalLeft,
+      lethalTop,
+      lethalRight,
+      lethalBottom,
+    );
+
+    if (game.sidewalkDownedLine) {
+      game.setKillZones([lethal]);
+
+      if (game.debugZones) {
+        final dbg = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = const Color(0xFFFFB300).withOpacity(0.95);
+        canvas.drawRect(lethal, dbg);
+      }
+    }
+
+    // Fence dead zone: everything directly under the kill zone
+    final Rect fenceRect = Rect.fromLTRB(
+      grassRect.left, 
+      lethalBottom + 8.0,
+      grassRect.right,
+      grassRect.bottom,
+    );
+    namedSolids.add((rect: fenceRect, name: 'Fence'));
+
+    // Register named solids so collision + debug overlay know about the fence & road
+    game.setNamedSolids(namedSolids);
   }
 
   void _drawDownedLine(Canvas canvas, Rect grassRect) {
-    // Simple zigzag cable + warning sign
     final path = Path();
     final left = grassRect.left + grassRect.width * 0.15;
     final right = grassRect.right - grassRect.width * 0.12;
@@ -881,153 +2344,544 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     tp.paint(canvas, Offset(signRect.outerRect.center.dx - tp.width / 2, signRect.outerRect.center.dy - tp.height / 2));
   }
 
-  // ---------- Neighbor (another front lawn look) ----------
+  // Neighbor
   void _drawNeighborLawn(Canvas canvas, Rect rect) {
     _drawBorder(canvas, rect, const Color(0xFF1A2A1A));
     const inset = 14.0;
     final inner = rect.deflate(inset);
 
-    // Lawn
-    canvas.drawRRect(RRect.fromRectAndRadius(inner, const Radius.circular(10)), Paint()..color = const Color(0xFF2B6A2B));
+    final game = gameRef;
 
-    // House band at bottom, door on left side (flavor change)
-    final houseBandH = (inner.height * 0.14).clamp(40.0, 90.0);
-    final house = Rect.fromLTWH(inner.left, inner.bottom - houseBandH, inner.width, houseBandH);
-    canvas.drawRect(house, Paint()..color = const Color(0xFF454F63));
+    final namedSolids = <({Rect rect, String name})>[];
 
-    // Visualize left door (from sidewalk)
-    final leftDoorRect  = Rect.fromLTWH(16, size.y / 2 - 20, 40, 40);
+    // Background image
+    if (_neighborBg != null) {
+      final src = Rect.fromLTWH(
+        0,
+        0,
+        _neighborBg!.width.toDouble(),
+        _neighborBg!.height.toDouble(),
+      );
+      final clip = RRect.fromRectAndRadius(inner, const Radius.circular(10));
+      final paint = Paint()
+        ..isAntiAlias = false
+        ..filterQuality = FilterQuality.none;
+      canvas.save();
+      canvas.clipRRect(clip);
+      canvas.drawImageRect(_neighborBg!, src, inner, paint);
+      canvas.restore();
+    } else {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(inner, const Radius.circular(10)),
+        Paint()..color = const Color(0xFF2B6A2B),
+      );
+      final houseBandH =
+          (inner.height * 0.14).clamp(40.0, 90.0);
+      final house = Rect.fromLTWH(
+        inner.left,
+        inner.bottom - houseBandH,
+        inner.width,
+        houseBandH,
+      );
+      canvas.drawRect(
+        house,
+        Paint()..color = const Color(0xFF454F63),
+      );
+    }
+
+    // door to sidewalk
+    final leftDoorRect = Rect.fromLTWH(
+      16,
+      game.size.y * 0.34,
+      40,
+      40,
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(leftDoorRect, const Radius.circular(8)),
       Paint()..color = Colors.white.withOpacity(0.10),
     );
 
-    // Simple stepping stones
-    final stonesPaint = Paint()..color = const Color(0xFFD6D3CD);
-    for (int i = 0; i < 5; i++) {
-      final cx = inner.center.dx - 40 + i * 22;
-      final cy = inner.center.dy + 18 - i * 6;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(cx, cy), width: 20, height: 12), const Radius.circular(6)),
-        stonesPaint,
-      );
-    }
+    // bottom door visual
+    final bottomDoorRect = Rect.fromLTWH(
+      game.size.x / 2 - 20,
+      game.size.y - 48,
+      40,
+      28,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bottomDoorRect, const Radius.circular(6)),
+      Paint()..color = Colors.white.withOpacity(0.12),
+    );
 
-    (gameRef as SaferAdventureGame).setSolids(const []);
+    // bush dead zones
+    final double bushBandHeight = inner.height * 0.13;
+    final double bushTop = inner.bottom - bushBandHeight;
+    final double gapHalfWidth = inner.width * 0.09;
+
+    final Rect leftBushes = Rect.fromLTRB(
+      inner.left,
+      bushTop + 4,
+      inner.center.dx - gapHalfWidth,
+      inner.bottom,
+    );
+    namedSolids.add((rect: leftBushes, name: 'Bushes'));
+
+    final Rect rightBushes = Rect.fromLTRB(
+      inner.center.dx + gapHalfWidth,
+      bushTop,
+      inner.right,
+      inner.bottom,
+    );
+    namedSolids.add((rect: rightBushes, name: 'Bushes'));
+
+    // tree stump dead zone
+    final Rect stumpRect = Rect.fromCircle(
+      center: Offset(
+        inner.left + inner.width * 0.20,
+        inner.top + inner.height * 0.40,
+      ),
+      radius: inner.width * 0.08,
+    );
+    namedSolids.add((rect: stumpRect, name: 'Tree Stump'));
+
+    // Register collision solids (bushes + stump)
+    game.setNamedSolids(namedSolids);
   }
 
-  // ---------- Kitchen ----------
+  // Kitchen
   void _drawKitchen(Canvas canvas, Rect rect) {
     _drawBorder(canvas, rect, const Color(0xFF223249));
     const inset = 14.0;
     final inner = rect.deflate(inset);
 
-    // Floor tiles
-    canvas.drawRRect(RRect.fromRectAndRadius(inner, const Radius.circular(10)), Paint()..color = const Color(0xFF374B63));
-    final grout = Paint()
-      ..color = Colors.black.withOpacity(0.18)
-      ..strokeWidth = 1;
-    const tile = 26.0;
-    for (double x = inner.left; x <= inner.right; x += tile) {
-      canvas.drawLine(Offset(x, inner.top), Offset(x, inner.bottom), grout);
+    if (_kitchenBg != null) {
+      final src = Rect.fromLTWH(0, 0, _kitchenBg!.width.toDouble(), _kitchenBg!.height.toDouble());
+      final paint = Paint()..isAntiAlias = false..filterQuality = FilterQuality.none;
+      final clip = RRect.fromRectAndRadius(inner, const Radius.circular(10));
+      canvas.save(); canvas.clipRRect(clip);
+      canvas.drawImageRect(_kitchenBg!, src, inner, paint);
+      canvas.restore();
+    } else {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(inner, const Radius.circular(10)),
+        Paint()..color = const Color(0xFFCBD4DD),
+      );
     }
-    for (double y = inner.top; y <= inner.bottom; y += tile) {
-      canvas.drawLine(Offset(inner.left, y), Offset(inner.right, y), grout);
+
+    // Door to Living
+    final doorRect = Rect.fromLTWH(16, size.y / 2 - 20, 40, 40);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(doorRect, const Radius.circular(10)),
+      Paint()..color = Colors.white.withOpacity(0.14),
+    );
+
+    // collision solids
+    final List<({Rect rect, String name})> namedSolids = [];
+
+    final double rightPad          = 8.0;
+    const double RIGHT_DEPTH_BASE  = 56.0;
+    const double PROTRUDE_PX       = 12.0;
+
+    // Heights by proportion so the stack fills from top down to the fridge top
+    final double ovenH    = inner.height * 0.18;
+    final double sinkH    = inner.height * 0.22;
+    final double counterH = inner.height * 0.24;
+
+    final double ovenW_base    = 64.0;
+    final double sinkW_base    = 66.0;
+    final double counterW_base = 60.0;
+
+    final double ovenW    = ovenW_base    + PROTRUDE_PX;
+    final double sinkW    = sinkW_base    + PROTRUDE_PX;
+    final double counterW = counterW_base + PROTRUDE_PX;
+
+    final double maxTop3W   = math.max(ovenW, math.max(sinkW, counterW));
+    final double alignedLeft = inner.right - rightPad - maxTop3W;
+
+    // Stack from the very top
+    double y = inner.top;
+
+    // oven
+    final Rect ovenRect = Rect.fromLTWH(alignedLeft, y, ovenW, ovenH);
+    namedSolids.add((rect: ovenRect, name: 'Oven'));
+    y += ovenH;
+
+    // sink
+    final Rect sinkRect = Rect.fromLTWH(alignedLeft, y, sinkW, sinkH);
+    namedSolids.add((rect: sinkRect, name: 'Sink'));
+    y += sinkH;
+
+    // right counter
+    const double COUNTER_PULL_TOWARD_WALL = 8.0;
+    const double COUNTER_LESS_PROTRUDE    = 2.0;
+
+    final double counterW_narrow = (counterW_base + PROTRUDE_PX - COUNTER_LESS_PROTRUDE).clamp(44.0, 999.0);
+
+    final double counterLeft = alignedLeft + COUNTER_PULL_TOWARD_WALL;
+
+    final Rect rightCounterRect = Rect.fromLTWH(counterLeft, y, counterW_narrow, counterH);
+    namedSolids.add((rect: rightCounterRect, name: 'Counter'));
+    y += counterH;
+
+    const double TOE_KICK_WIDTH = 70.0;  // thin strip that hugs the wall to the floor
+    final double toeKickLeft = inner.right - rightPad - TOE_KICK_WIDTH;
+    final Rect counterToeKick = Rect.fromLTWH(
+      toeKickLeft,
+      rightCounterRect.bottom,
+      TOE_KICK_WIDTH,
+      (inner.bottom - rightCounterRect.bottom).clamp(0.0, double.infinity),
+    );
+    if (counterToeKick.height > 0) {
+      namedSolids.add((rect: counterToeKick, name: 'Counter'));
     }
 
-    // Counters (top band)
-    final counterH = 44.0;
-    final counters = Rect.fromLTWH(inner.left, inner.top, inner.width, counterH);
-    canvas.drawRect(counters, Paint()..color = const Color(0xFF8C9AA9));
-    // Sink cutout
-    final sink = RRect.fromRectAndRadius(Rect.fromLTWH(inner.center.dx - 26, inner.top + 6, 52, counterH - 12), const Radius.circular(8));
-    canvas.drawRRect(sink, Paint()..color = const Color(0xFFB8C6D9));
+    // fridge sizing
+    final double baseFridgeH = inner.height - (ovenH + sinkH + counterH);
 
-    // Fridge (right side)
-    final fridge = RRect.fromRectAndRadius(
-      Rect.fromLTWH(inner.right - 78, inner.top + 8, 66, 110),
-      const Radius.circular(8),
-    );
-    canvas.drawShadow(Path()..addRRect(fridge), Colors.black, 6, false);
-    canvas.drawRRect(fridge, Paint()..color = const Color(0xFFE5E9EF));
-    // Fridge details
-    canvas.drawLine(
-      Offset(fridge.outerRect.left + 4, fridge.outerRect.center.dy),
-      Offset(fridge.outerRect.right - 4, fridge.outerRect.center.dy),
-      Paint()..color = const Color(0xFFCBD3DB)..strokeWidth = 2,
-    );
-    final handle = RRect.fromRectAndRadius(Rect.fromLTWH(fridge.outerRect.right - 10, fridge.outerRect.top + 16, 4, 28), const Radius.circular(2));
-    canvas.drawRRect(handle, Paint()..color = const Color(0xFFB0B8C0));
+    // tuners
+    const double FRIDGE_HEIGHT_SCALE = 0.50;
+    const double FRIDGE_PROTRUDE_PX  = 14.0;
 
-    (gameRef as SaferAdventureGame).setSolids(const []);
+    final double fridgeWBase = 72.0;
+    final double fridgeW     = fridgeWBase + FRIDGE_PROTRUDE_PX;
+    final double fridgeH     = baseFridgeH * FRIDGE_HEIGHT_SCALE;
+
+    final double fridgeRight = inner.right - rightPad;
+    final double fridgeX     = fridgeRight - fridgeW;
+    final double fridgeY     = inner.bottom - fridgeH;
+
+    final Rect fridgeRect = Rect.fromLTWH(fridgeX, fridgeY, fridgeW, fridgeH);
+    namedSolids.add((rect: fridgeRect, name: 'Fridge'));
+
+    // bottom left corner
+    // Tunables
+    const double BL_COUNTER_WIDTH   = 68.0;
+    const double BL_COUNTER_HEIGHT  = 240.0;
+    const double BL_COUNTER_TOP_PAD = 0.0;
+
+    final Rect blCounter = Rect.fromLTWH(
+      rect.left,
+      rect.bottom - BL_COUNTER_HEIGHT - BL_COUNTER_TOP_PAD,
+      BL_COUNTER_WIDTH,
+      BL_COUNTER_HEIGHT + BL_COUNTER_TOP_PAD
+    );
+    namedSolids.add((rect: blCounter, name: 'Counter'));
+
+    // vertical bar stools
+    const int    BL_STOOL_COUNT    = 4;
+    const double BL_STOOL_W        = 22.0;
+    const double BL_STOOL_H        = 18.0;
+    const double BL_STOOL_GAP_Y    = 28.0;
+    const double BL_STOOL_RIGHT_DX = 10.0;
+    const double BL_STOOL_TOP_PAD  = 30.0;
+
+    double stoolX = blCounter.right + BL_STOOL_RIGHT_DX;
+    double stoolY = blCounter.top + BL_STOOL_TOP_PAD;
+
+    for (int i = 0; i < BL_STOOL_COUNT; i++) {
+      final Rect stool = Rect.fromLTWH(
+        stoolX,
+        stoolY + i * (BL_STOOL_H + BL_STOOL_GAP_Y),
+        BL_STOOL_W,
+        BL_STOOL_H,
+      );
+      namedSolids.add((rect: stool, name: 'Bar Stool'));
+    }
+
+
+    // top left dining table + chairs
+    const double TBL_ANCHOR_LEFT_PCT  = 0.07;
+    const double TBL_ANCHOR_TOP_PCT   = 0.18; 
+    const double TBL_WIDTH_PCT        = 0.32; 
+    const double TBL_HEIGHT_PX        = 28.0; 
+
+    const double TBL_DX_PX            = -14.0;
+    const double TBL_DY_PX            = -20.0;
+
+    // Chair layout
+    const int    CH_COUNT_PER_SIDE    = 3;
+    const double CH_WIDTH_PX          = 20.0;
+    const double CH_HEIGHT_PX         = 15.0;
+
+    // Horizontal spacing relative to the table
+    const double CH_EDGE_INSET_PX     = 36.0;
+    // Vertical spacing relative to the table
+    const double CH_AWAY_FROM_EDGE_PX = 8.0;
+
+    // Global nudges for ALL chairs at once
+    const double CH_GLOBAL_DX_PX      = 0.0;
+    const double CH_GLOBAL_DY_PX      = 0.0;
+
+    // compute table rect from inner room rect
+    final Rect _kInner = inner;
+    final double tblW  = _kInner.width * TBL_WIDTH_PCT;
+    final double tblH  = TBL_HEIGHT_PX;
+
+    final Offset tblCenter = Offset(
+      _kInner.left + _kInner.width  * TBL_ANCHOR_LEFT_PCT + tblW * 0.75 + TBL_DX_PX,
+      _kInner.top  + _kInner.height * TBL_ANCHOR_TOP_PCT  + TBL_DY_PX,
+    );
+
+    final Rect tableRect = Rect.fromCenter(center: tblCenter, width: tblW, height: tblH);
+    namedSolids.add((rect: tableRect, name: 'Dining Table'));
+
+    // chair X positions
+    final double leftX  = tableRect.left  + CH_EDGE_INSET_PX;
+    final double rightX = tableRect.right - CH_EDGE_INSET_PX;
+    List<double> _chairXs(int count) {
+      if (count <= 1) return [tableRect.center.dx];
+      if (count == 2) return [leftX, rightX];
+      if (count == 3) return [leftX, tableRect.center.dx, rightX];
+      final List<double> xs = [];
+      final double step = (rightX - leftX) / (count - 1);
+      for (int i = 0; i < count; i++) xs.add(leftX + i * step);
+      return xs;
+    }
+    final xs = _chairXs(CH_COUNT_PER_SIDE);
+
+    // chair Y positions
+    final double topCY    = tableRect.top    - CH_AWAY_FROM_EDGE_PX;
+    final double bottomCY = tableRect.bottom + CH_AWAY_FROM_EDGE_PX;
+
+    Rect _chair(double cx, double cy) => Rect.fromCenter(
+      center: Offset(cx + CH_GLOBAL_DX_PX, cy + CH_GLOBAL_DY_PX),
+      width: CH_WIDTH_PX,
+      height: CH_HEIGHT_PX,
+    );
+
+    // Top row
+    for (final cx in xs) {
+      namedSolids.add((rect: _chair(cx, topCY), name: 'Chair'));
+    }
+    // Bottom row
+    for (final cx in xs) {
+      namedSolids.add((rect: _chair(cx, bottomCY), name: 'Chair'));
+    }
+
+
+    // Chairs
+    final double chairW = 20.0, chairH = 15.0;
+    final double edgeInset = 36.0;
+    final double sidePad   = 16.0;
+    final List<double> chairXs = [
+      tableRect.left + edgeInset,
+      tableRect.center.dx,
+      tableRect.right - edgeInset,
+    ];
+    // top row
+    for (final cx in chairXs) {
+      final Rect c = Rect.fromCenter(
+        center: Offset(cx, tableRect.top - sidePad),
+        width: chairW, height: chairH,
+      );
+      namedSolids.add((rect: c, name: 'Chair'));
+    }
+    // bottom row
+    for (final cx in chairXs) {
+      final Rect c = Rect.fromCenter(
+        center: Offset(cx, tableRect.bottom + sidePad),
+        width: chairW, height: chairH,
+      );
+      namedSolids.add((rect: c, name: 'Chair'));
+    }
+
+    // debug outlines
+    if ((gameRef).debugZones) {
+      final p = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = const Color(0xFFFF4081).withOpacity(0.85);
+      for (final z in namedSolids) {
+        canvas.drawRect(z.rect, p);
+      }
+    }
+
+    // Register as named solids so the bump label shows
+    (gameRef).setNamedSolids(namedSolids);
+
+
+    // Soft vignette
+    final vignette = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.topCenter,
+        radius: 1.25,
+        colors: [Colors.white.withOpacity(0.05), Colors.transparent],
+        stops: const [0.0, 1.0],
+      ).createShader(inner);
+    canvas.drawRRect(RRect.fromRectAndRadius(inner, const Radius.circular(10)), vignette);
   }
 
-  // ---------- Basement ----------
+  // Basement
   void _drawBasement(Canvas canvas, Rect rect) {
     _drawBorder(canvas, rect, const Color(0xFF151C27));
     const inset = 14.0;
     final inner = rect.deflate(inset);
 
-    // Bare floor
-    canvas.drawRRect(RRect.fromRectAndRadius(inner, const Radius.circular(10)), Paint()..color = const Color(0xFF263141));
+    // Local, named zones for this room
+    final namedSolids = <({Rect rect, String name})>[];
+    final namedKills  = <({Rect rect, String name})>[];
 
-    // Top door with "stairs up" visual (matches toLiving topDoor)
+    // Background image
+    if (_basementBg != null) {
+      final src  = Rect.fromLTWH(0, 0, _basementBg!.width.toDouble(), _basementBg!.height.toDouble());
+      final clip = RRect.fromRectAndRadius(inner, const Radius.circular(10));
+      final paint = Paint()..isAntiAlias = false..filterQuality = FilterQuality.none;
+      canvas.save();
+      canvas.clipRRect(clip);
+      canvas.drawImageRect(_basementBg!, src, inner, paint);
+      canvas.restore();
+    } else {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(inner, const Radius.circular(10)),
+        Paint()..color = const Color(0xFF263141),
+      );
+    }
+
+    // Top door
     final topDoorRect = Rect.fromLTWH(size.x / 2 - 20, 20, 40, 28);
     _drawStairsUp(canvas, topDoorRect);
 
-    // Some boxes & a shelf (flavor)
-    final box = RRect.fromRectAndRadius(Rect.fromLTWH(inner.left + 28, inner.bottom - 70, 48, 32), const Radius.circular(6));
-    canvas.drawRRect(box, Paint()..color = const Color(0xFF7A5A3A));
-    final shelf = RRect.fromRectAndRadius(Rect.fromLTWH(inner.right - 100, inner.bottom - 120, 86, 60), const Radius.circular(6));
-    canvas.drawRRect(shelf, Paint()..color = const Color(0xFF445468));
-
-    // Flooded overlay (first-visit 50/50)
-    final game = gameRef as SaferAdventureGame;
+    // Flooded water overlay / kill zone
+    final game = gameRef;
     if (game.basementFlooded) {
-      final water = Paint()..color = const Color(0x6633A6FF);
-      final waterRect = Rect.fromLTWH(inner.left + 8, inner.center.dy, inner.width - 16, inner.height * 0.45);
-      canvas.drawRRect(RRect.fromRectAndRadius(waterRect, const Radius.circular(8)), water);
+      final waterRect = Rect.fromLTWH(
+        inner.left + 8,
+        inner.center.dy,
+        inner.width - 16,
+        inner.height * 0.45,
+      );
 
-      // Ripples
+      // water fill
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(waterRect, const Radius.circular(8)),
+        Paint()..color = const Color(0x6633A6FF),
+      );
+
+      // ripples
       final ripple = Paint()
         ..color = const Color(0x99B4DAFF)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5;
       for (double y = waterRect.top + 8; y < waterRect.bottom; y += 12) {
-        canvas.drawArc(Rect.fromCenter(center: Offset(waterRect.center.dx, y), width: waterRect.width * 0.7, height: 12), 0, math.pi, false, ripple);
+        canvas.drawArc(
+          Rect.fromCenter(center: Offset(waterRect.center.dx, y), width: waterRect.width * 0.7, height: 12),
+          0, math.pi, false, ripple,
+        );
       }
+
+      // register named kill and raw kill zone
+      final Rect waterKill = Rect.fromLTWH(
+        waterRect.left,
+        waterRect.top + 4,
+        waterRect.width,
+        waterRect.height - 8,
+      );
+      namedKills.add((rect: waterKill, name: 'Flooded Water'));
+      (gameRef).setKillZones([waterKill]);
     }
 
-    (gameRef as SaferAdventureGame).setSolids(const []);
-  }
+    // Basement collision solids
 
-  // ---------- Shared small drawing bits ----------
+    // Electrical panel
+    final Rect electricalBoxRect = Rect.fromLTWH(
+      inner.left + 10, 
+      inner.bottom - 125, 
+      80,
+      75,
+    );
+    namedSolids.add((rect: electricalBoxRect, name: 'Electrical Panel'));
+
+    // Single cardboard box
+    final Rect singleBoxRect = Rect.fromLTWH(
+      inner.left + 15,
+      inner.top + inner.height * 0.43,
+      82,
+      62,
+    );
+    namedSolids.add((rect: singleBoxRect, name: 'Box'));
+
+    // Stool
+    final Rect stoolRect = Rect.fromCenter(
+      center: Offset(inner.left + inner.width * 0.18, inner.top + inner.height * 0.18),
+      width: 50,
+      height: 40,
+    );
+    namedSolids.add((rect: stoolRect, name: 'Stool'));
+
+    // Rolled rug
+    final Rect rugRect = Rect.fromCenter(
+      center: Offset(inner.right - inner.width * 0.07, inner.top + inner.height * 0.23),
+      width: 35,
+      height: 100,
+    );
+    namedSolids.add((rect: rugRect, name: 'Rolled Rug'));
+
+    // Boxes group
+    // Tunables
+    double BX_ANCHOR_RIGHT = 90;
+    double BX_ANCHOR_BOTTOM = 185;
+    double BX_W = 70;
+    double BX_H = 50; 
+    double BX_GAP = 1; 
+
+    bool H_ON_LEFT = true;
+
+    // Compute anchor for the bottom box of the vertical column
+    final double colX = inner.right - BX_ANCHOR_RIGHT;
+    final double colY = inner.bottom - BX_ANCHOR_BOTTOM;
+
+    // Vertical column: bottom and top boxes
+    final Rect boxBottom = Rect.fromLTWH(colX, colY, BX_W, BX_H);
+    final Rect boxTop    = Rect.fromLTWH(colX, colY - BX_H - BX_GAP, BX_W, BX_H);
+
+    // Horizontal box at the bottom of the L
+    final double horizX = H_ON_LEFT
+        ? (colX - BX_GAP - BX_W)   // extend to the LEFT
+        : (colX + BX_W + BX_GAP);  // extend to the RIGHT
+    final Rect boxSide  = Rect.fromLTWH(horizX, colY, BX_W, BX_H);
+
+    // Add all three with the same display name
+    namedSolids.add((rect: boxBottom, name: 'Boxes'));
+    namedSolids.add((rect: boxTop,    name: 'Boxes'));
+    namedSolids.add((rect: boxSide,   name: 'Boxes'));
+
+
+    // debug outlines
+    if ((gameRef).debugZones) {
+      final solidP = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = const Color(0xFF00E5FF).withOpacity(0.9);
+      for (final s in namedSolids) { canvas.drawRect(s.rect, solidP); }
+
+      final killP = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = const Color(0xFFF44336);
+      for (final k in namedKills) { canvas.drawRect(k.rect, killP); }
+    }
+
+    // Register for collision + labels
+    (gameRef).setNamedSolids(namedSolids);
+    (gameRef).setNamedKills(namedKills);
+
+    // Vignette for mood
+    final vignette = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.bottomCenter,
+        radius: 1.4,
+        colors: [Colors.white.withOpacity(0.04), Colors.transparent],
+        stops: const [0.0, 1.0],
+      ).createShader(inner);
+    canvas.drawRRect(RRect.fromRectAndRadius(inner, const Radius.circular(10)), vignette);
+  }
+}
+
+  // Shared small drawing bits
 
   List<Rect> _solidsForRoom(Room r, Vector2 size) {
-    // Only living room has solids for now; others cosmetic
-    if (r != Room.living) return const [];
-    const inset = 14.0;
-    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
-    final inner = rect.deflate(inset);
-    final rug = Rect.fromCenter(
-      center: Offset(inner.center.dx + 10.0, inner.center.dy + 18.0),
-      width: inner.width * 0.46,
-      height: inner.height * 0.34,
-    );
-    final coffee = Rect.fromCenter(
-      center: Offset(rug.center.dx + 4.0, rug.center.dy + 2.0),
-      width: rug.width * 0.38,
-      height: rug.height * 0.30,
-    );
-    final couch = Rect.fromCenter(
-      center: Offset(inner.left + 72.0, rug.center.dy),
-      width: 58.0,
-      height: 150.0,
-    );
-    return <Rect>[
-      couch.deflate(4.0),
-      coffee.deflate(6.0),
-    ];
+    if (r == Room.living) return const [];
+    return const [];
   }
 
   void _drawFrontDoor(Canvas canvas, Rect doorRect) {
@@ -1096,7 +2950,7 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
   }
 
   void _drawStairsUp(Canvas canvas, Rect doorRect) {
-    // Visual cue for stairs going up (inverse of stairs down)
+    // Visual cue for stairs going up
     final opening = RRect.fromRectAndRadius(doorRect, const Radius.circular(8));
     canvas.drawRRect(opening, Paint()..color = Colors.black.withOpacity(0.18));
     const steps = 5;
@@ -1128,7 +2982,7 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     );
     canvas.drawRRect(shade, Paint()..color = on ? const Color(0xFFFFE38A) : const Color(0xFF3F3F45));
 
-    // modest local glow when on (room-wide light handled separately)
+    // modest local glow when on 
     if (on) {
       final glow = Paint()
         ..shader = RadialGradient(
@@ -1147,50 +3001,74 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
       canvas.drawRRect(shade, faint);
     }
   }
-}
 
 class Doorway extends PositionComponent with HasGameRef<SaferAdventureGame> {
   final Rect rect;
   final String label;
   final Future<void> Function() onEnter;
+  final Color? color;
+  final Color? textColor;
 
-  Doorway({required this.rect, required this.label, required this.onEnter}) {
+
+  Doorway({
+    required this.rect,
+    required this.label,
+    required this.onEnter,
+    this.color,
+    this.textColor,
+  }) {
     position = Vector2(rect.left, rect.top);
     size = Vector2(rect.width, rect.height);
     priority = 6;
   }
 
   @override
-  void render(Canvas canvas) {
-    // Subtle door overlay + label (kept for clarity)
-    final p = Paint()..color = Colors.white.withOpacity(0.10);
-    final r = Rect.fromLTWH(0, 0, size.x, size.y);
-    canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(6)), p);
+    void render(Canvas canvas) {
+      // Background color
+      final bgColor = color ?? Colors.white.withOpacity(0.10);
+      final p = Paint()..color = bgColor;
 
-    final tp = TextPainter(
-      text: TextSpan(text: label, style: const TextStyle(color: Colors.white60, fontSize: 10)),
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: size.x + 80);
+      final r = Rect.fromLTWH(0, 0, size.x, size.y);
+      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(6)), p);
+
+      // Text color
+      final labelColor = textColor ?? Colors.white60;
+
+      final tp = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: TextStyle(color: labelColor, fontSize: 10),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: size.x + 80);
     tp.paint(canvas, const Offset(-18, -14));
   }
 
   @override
   void update(double dt) {
     super.update(dt);
+
+    // Keep geometry synced with the logical rect every frame
     position = Vector2(rect.left, rect.top);
     size = Vector2(rect.width, rect.height);
 
-    final game = gameRef as SaferAdventureGame;
-    if (game.isTransitioning) return;
+    final game = gameRef;
 
-    final player = game.children.whereType<Player>().firstOrNull;
+    // block doorway interactions while overlay is up or during fades
+    if (game.isInputLocked || game.isTransitioning) return;
+
+    final players = game.children.whereType<Player>();
+    final player = players.isEmpty ? null : players.first;
     if (player == null) return;
 
     final center = Vector2(x + size.x / 2, y + size.y / 2);
     final dist = (player.position - center).length;
     if (dist < 26) {
+      // Nudge player away so we don’t re-trigger instantly
       final away = (player.position - center);
-      if (away.length2 > 0) player.position += away.normalized() * 10;
+      if (away.length2 > 0) {
+        player.position += away.normalized() * 10;
+      }
       onEnter();
     }
   }
@@ -1240,14 +3118,23 @@ class Hotspot extends PositionComponent with HasGameRef<SaferAdventureGame> {
   @override
   void update(double dt) {
     super.update(dt);
-    final player = gameRef.children.whereType<Player>().firstOrNull;
+
+    // block hotspot interactions while overlay is up
+    if ((gameRef).isInputLocked) return;
+
+    final players = gameRef.children.whereType<Player>();
+    final player = players.isEmpty ? null : players.first;
     if (player == null) return;
 
     final d = (player.position - position).length;
     if (d < radius * 0.75) {
       onTrigger();
+
+      // Small pushback so it doesn't spam-trigger
       final push = (player.position - position);
-      if (push.length2 > 0) player.position += push.normalized() * 8;
+      if (push.length2 > 0) {
+        player.position += push.normalized() * 8;
+      }
     }
   }
 }
@@ -1296,6 +3183,222 @@ class HudToast extends Component with HasGameRef<SaferAdventureGame> {
   }
 }
 
+class NeighborDialog extends PositionComponent
+    with HasGameRef<SaferAdventureGame>, TapCallbacks {
+  final String message;
+  final VoidCallback onComplete;
+
+  NeighborDialog({
+    required this.message,
+    required this.onComplete,
+  }) {
+    priority = 2600; // above HUD, below how-to overlay
+  }
+
+  @override
+  Future<void> onLoad() async {
+    // Full-screen so we can darken everything and catch taps
+    anchor = Anchor.topLeft;
+    position = Vector2.zero();
+    size = gameRef.size;
+    // Lock player movement while dialog is up
+    gameRef.lockInput(true);
+  }
+
+  @override
+  void onGameResize(Vector2 canvasSize) {
+    super.onGameResize(canvasSize);
+    size = canvasSize;
+    position = Vector2.zero();
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final s = gameRef.size;
+
+    // Dim background
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, s.x, s.y),
+      Paint()..color = Colors.black.withOpacity(0.45),
+    );
+
+    // Bubble
+    final double pad = 16.0;
+    final double bubbleH = 140.0;
+    final Rect bubbleRect = Rect.fromLTWH(
+      pad,
+      s.y - bubbleH - pad,
+      s.x - pad * 2,
+      bubbleH,
+    );
+    final RRect bubbleRRect =
+        RRect.fromRectAndRadius(bubbleRect, const Radius.circular(12));
+    canvas.drawRRect(
+      bubbleRRect,
+      Paint()..color = const Color(0xFFFAFAFA),
+    );
+
+    // Text inside bubble
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: message,
+        style: const TextStyle(
+          color: Colors.black87,
+          fontSize: 14,
+          height: 1.3,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: bubbleRect.width - 24);
+
+    textPainter.paint(
+      canvas,
+      Offset(
+        bubbleRect.left + 12,
+        bubbleRect.top + 12,
+      ),
+    );
+
+    // "OK" button in bottom-right of bubble
+    const double btnW = 70;
+    const double btnH = 30;
+    final Rect okRect = Rect.fromLTWH(
+      bubbleRect.right - btnW - 14,
+      bubbleRect.bottom - btnH - 12,
+      btnW,
+      btnH,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(okRect, const Radius.circular(8)),
+      Paint()..color = const Color(0xFF1976D2),
+    );
+    final okTp = TextPainter(
+      text: const TextSpan(
+        text: 'OK',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    okTp.paint(
+      canvas,
+      Offset(
+        okRect.center.dx - okTp.width / 2,
+        okRect.center.dy - okTp.height / 2,
+      ),
+    );
+  }
+
+  @override
+  void onTapUp(TapUpEvent event) {
+    event.handled = true;
+    final s = gameRef.size;
+
+    // Rebuild the bubble + OK rect the same way as in render
+    final double pad = 16.0;
+    final double bubbleH = 140.0;
+    final Rect bubbleRect = Rect.fromLTWH(
+      pad,
+      s.y - bubbleH - pad,
+      s.x - pad * 2,
+      bubbleH,
+    );
+    const double btnW = 70;
+    const double btnH = 30;
+    final Rect okRect = Rect.fromLTWH(
+      bubbleRect.right - btnW - 14,
+      bubbleRect.bottom - btnH - 12,
+      btnW,
+      btnH,
+    );
+
+    final Offset pos = event.localPosition.toOffset();
+
+    // Tap OK or anywhere inside bubble to close
+    if (okRect.contains(pos) || bubbleRect.contains(pos)) {
+      // unlock movement, mark task done, remove dialog
+      gameRef.lockInput(false);
+      onComplete();
+      removeFromParent();
+    }
+  }
+
+  @override
+  void onRemove() {
+    // make sure input is unlocked when this goes away
+    gameRef.lockInput(false);
+    super.onRemove();
+  }
+}
+
+
+class _ZoneDebugOverlay extends Component with HasGameRef<SaferAdventureGame> {
+  @override
+  void render(Canvas canvas) {
+    if (!gameRef.debugZones) return;
+
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+
+    final solidPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = const Color(0xFF42A5F5);
+    for (final z in gameRef._namedSolids) {
+      canvas.drawRect(z.rect, solidPaint);
+      tp.text = TextSpan(text: z.name, style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 11));
+      tp.layout();
+      tp.paint(canvas, Offset(z.rect.left + 4, z.rect.top - 14));
+    }
+
+    final killPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = const Color(0xFFF44336);
+    for (final z in gameRef._namedKills) {
+      canvas.drawRect(z.rect, killPaint);
+      tp.text = const TextSpan(text: 'KILL', style: TextStyle(color: Colors.redAccent, fontSize: 11));
+      tp.layout();
+      tp.paint(canvas, Offset(z.rect.left + 4, z.rect.top - 14));
+    }
+  }
+}
+
+
+class WinConfetti extends Component with HasGameRef<SaferAdventureGame> {
+  double _time = 0;
+  final double _duration = 1.5;
+
+  @override
+  int get priority => 2800; // above HUD, below how-to if it ever shows
+
+  @override
+  void render(Canvas canvas) {
+    final s = gameRef.size;
+    final center = Offset(s.x / 2, s.y / 3);
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    for (int i = 0; i < 12; i++) {
+      final t = _time + i * 0.08;
+      final r = 24 + i * 4;
+      final dx = math.sin(t * 6 + i) * r;
+      final dy = math.cos(t * 4 + i * 0.5) * r * 0.4;
+      paint.color = Colors.primaries[i % Colors.primaries.length].withOpacity(0.9);
+      canvas.drawCircle(center + Offset(dx, dy), 6, paint);
+    }
+  }
+
+  @override
+  void update(double dt) {
+    _time += dt;
+    if (_time > _duration) {
+      removeFromParent();
+    }
+  }
+}
+
 class FadeCurtain extends PositionComponent {
   FadeCurtain({required Vector2 size}) {
     this.size = size;
@@ -1332,16 +3435,39 @@ class FadeCurtain extends PositionComponent {
   }
 
   Future<void> fadeToBlack({double duration = 0.28}) {
+    // cancel any prior waiter and start fresh
+    _anim?.complete();
+    _anim = Completer<void>();
+
+    if (duration <= 0) {
+      _alpha = 1.0;
+      _target = 1.0;
+      final c = _anim!;
+      _anim = null;
+      c.complete();
+      return c.future;
+    }
+
     _target = 1.0;
-    _speed = 1.0 / (duration <= 0 ? 0.0001 : duration);
-    _anim ??= Completer<void>();
+    _speed = 1.0 / duration;
     return _anim!.future;
   }
 
   Future<void> fadeInFromBlack({double duration = 0.28}) {
+    _anim?.complete();
+    _anim = Completer<void>();
+
+    if (duration <= 0) {
+      _alpha = 0.0;
+      _target = 0.0;
+      final c = _anim!;
+      _anim = null;
+      c.complete();
+      return c.future;
+    }
+
     _target = 0.0;
-    _speed = 1.0 / (duration <= 0 ? 0.0001 : duration);
-    _anim ??= Completer<void>();
+    _speed = 1.0 / duration;
     return _anim!.future;
   }
 }
