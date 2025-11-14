@@ -45,6 +45,7 @@ class FridgeMiniGame extends PositionComponent
     _FoodItemSpec('burgerGood', 'assets/images/burgerGood.png', false),
     _FoodItemSpec('cheeseBad',  'assets/images/cheeseBad.png',  true),
     _FoodItemSpec('eggsGood',   'assets/images/eggsGood.png',   false),
+    _FoodItemSpec('eggsBad',    'assets/images/eggsBad.png',    true),
     _FoodItemSpec('milkBad',    'assets/images/milkBad.png',    true),
     _FoodItemSpec('yogurtGood', 'assets/images/yogurtGood.png', false),
   ];
@@ -67,8 +68,8 @@ class FridgeMiniGame extends PositionComponent
   // finish guard to ensure overlay closes exactly once
   bool _closing = false;
 
-  // high-contrast amber for headings/counters
-  static const ui.Color _uiAccent = ui.Color(0xFFFFD54F);
+  // high-contrast accent for headings/counters
+  static const ui.Color _uiAccent = ui.Color(0xFF8A8A8A);
 
   @override
   Future<void> onLoad() async {
@@ -205,7 +206,7 @@ class FridgeMiniGame extends PositionComponent
     final pos = ui.Offset(p.x, p.y);
 
     if (closeRect.contains(pos)) {
-      // No local fade here — parent will do the transition
+      // No local fade here
       _finishNow(); // calls onFinished and removes self
     }
   }

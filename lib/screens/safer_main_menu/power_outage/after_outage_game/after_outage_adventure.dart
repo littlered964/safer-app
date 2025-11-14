@@ -37,13 +37,13 @@ class ChecklistModel {
 
   List<MapEntry<String, bool>> get items => [
         MapEntry('Power restored', powerRestored),
-        MapEntry('Basement safe (flood resolved)', basementResolved),
-        MapEntry('Fridge checked (food safety)', fridgeChecked),
+        MapEntry('Broken glass swept', livingGlassCleared),
+        MapEntry('Basement flooding', basementResolved),
+        MapEntry('Checked fridge', fridgeChecked),
         MapEntry('Video of front yard taken', frontYardVideo),
-        MapEntry('Sidewalk safe (downed line handled)', sidewalkResolved),
+        MapEntry('Downed line handled', sidewalkResolved),
         MapEntry('Leaky hydrant reported', leakyHydrantReported),
         MapEntry('Checked on neighbor', neighborChecked),
-        MapEntry('Broken glass swept (living room)', livingGlassCleared),
       ];
 }
 
@@ -893,7 +893,7 @@ class SaferAdventureGame extends FlameGame {
         rect: hydrantHotRect,
         label: 'Leaky Hydrant',
         color: Colors.black.withOpacity(0.35),
-        textColor: Colors.white,
+        textColor: Colors.black,
         onEnter: () async {
           HapticFeedback.selectionClick();
           if (checklist.leakyHydrantReported) {
@@ -3274,7 +3274,7 @@ class NeighborDialog extends PositionComponent
     );
     final okTp = TextPainter(
       text: const TextSpan(
-        text: 'OK',
+        text: 'GREAT',
         style: TextStyle(
           color: Colors.white,
           fontSize: 14,
