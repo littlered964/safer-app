@@ -343,6 +343,15 @@ class SaferAdventureGame extends FlameGame {
   final ChecklistModel checklist = ChecklistModel();
   late final ChecklistOverlay _checklist;
 
+  // Task ordering: power -> all indoor tasks -> outdoor tasks
+  bool get _indoorTasksDone =>
+      checklist.livingGlassCleared &&
+      checklist.basementResolved &&
+      checklist.fridgeChecked;
+
+  bool get _canGoOutside => checklist.powerRestored && _indoorTasksDone;
+
+
   void toggleChecklist() {
     _checklist.open = !_checklist.open;
     if (_checklist.open) {
@@ -594,14 +603,50 @@ class SaferAdventureGame extends FlameGame {
         label: '↓ Basement',
         onEnter: () async {
           HapticFeedback.selectionClick();
+
+          // Must restore power before leaving the living room
+          if (!checklist.powerRestored) {
+            add(
+              NeighborDialog(
+                message: 'Before going downstairs, check a lamp to see if the power is back on.',
+                onComplete: () {},
+              ),
+            );
+            return;
+          }
+
           await _goTo(Room.basement, spawnFrom: 'toLiving');
         },
       ));
+
       add(Doorway(
         rect: livingDoors['toFrontLawn']!,
         label: '↑ Front Lawn',
         onEnter: () async {
           HapticFeedback.selectionClick();
+
+          // Must restore power first
+          if (!checklist.powerRestored) {
+            add(
+              NeighborDialog(
+                message: 'Before going outside, check a lamp to see if the power came back on.',
+                onComplete: () {},
+              ),
+            );
+            return;
+          }
+
+          // Must finish all indoor tasks before leaving the house
+          if (!_indoorTasksDone) {
+            add(
+              NeighborDialog(
+                message: 'Finish all the tasks inside your house before going outside.',
+                onComplete: () {},
+              ),
+            );
+            return;
+          }
+
           await _goTo(Room.frontLawn, spawnFrom: 'toLiving');
         },
       ));
@@ -610,9 +655,22 @@ class SaferAdventureGame extends FlameGame {
         label: '→ Kitchen',
         onEnter: () async {
           HapticFeedback.selectionClick();
+
+          // Must restore power before leaving the living room
+          if (!checklist.powerRestored) {
+            add(
+              NeighborDialog(
+                message: 'First, check a lamp in the living room to make sure the power is back on before going to the kitchen.',
+                onComplete: () {},
+              ),
+            );
+            return;
+          }
+
           await _goTo(Room.kitchen, spawnFrom: 'toLiving');
         },
       ));
+
 
       Rect _livingGlassRect() {
         const double inset = 14.0;
@@ -685,8 +743,26 @@ class SaferAdventureGame extends FlameGame {
         );
 
         Future<void> _doSweep() async {
-          if (!_livingGlassPresent) { _hud.show('Window area already cleared.'); return; }
-          final yes = await _showYesNoDialog('Broken Glass', 'Sweep up the broken glass now?');
+          if (!_livingGlassPresent) {
+            _hud.show('Window area already cleared.');
+            return;
+          }
+
+          // Must restore power before starting indoor cleanup tasks
+          if (!checklist.powerRestored) {
+            add(
+              NeighborDialog(
+                message: 'First, check a lamp to see if the power is back on. Then you can clean up the broken glass.',
+                onComplete: () {},
+              ),
+            );
+            return;
+          }
+
+          final yes = await _showYesNoDialog(
+            'Broken Glass',
+            'Sweep up the broken glass now?',
+          );
           if (yes) {
             await _fade.fadeToBlack(duration: 0.18);
             _livingGlassPresent = false;
@@ -751,9 +827,21 @@ class SaferAdventureGame extends FlameGame {
         label: '↗ Sidewalk',
         onEnter: () async {
           HapticFeedback.selectionClick();
+
+          if (!_canGoOutside) {
+            add(
+              NeighborDialog(
+                message: 'Complete all your indoor tasks before heading farther down the street.',
+                onComplete: () {},
+              ),
+            );
+            return;
+          }
+
           await _goTo(Room.sidewalk, spawnFrom: 'toFrontLawn');
         },
       ));
+
 
       // front yard video interaction
       final Rect recordRect = Rect.fromCenter(
@@ -815,9 +903,21 @@ class SaferAdventureGame extends FlameGame {
         label: '→ Neighbor',
         onEnter: () async {
           HapticFeedback.selectionClick();
+
+          if (!_canGoOutside) {
+            add(
+              NeighborDialog(
+                message: 'Take care of all the tasks inside your own home before checking on your neighbor.',
+                onComplete: () {},
+              ),
+            );
+            return;
+          }
+
           await _goTo(Room.neighbor, spawnFrom: 'toSidewalk');
         },
       ));
+
 
       // sidewalk geometry for hotspots
       const double inset = 14.0;
@@ -1068,14 +1168,22 @@ class SaferAdventureGame extends FlameGame {
           color: Colors.black.withOpacity(0.35),
           onEnter: () async {
             HapticFeedback.selectionClick();
+
             if (!checklist.powerRestored) {
-              _hud.show('Restore power first (check a lamp).');
+              add(
+                NeighborDialog(
+                  message: 'Before checking the fridge, turn on a lamp to make sure the power is back.',
+                  onComplete: () {},
+                ),
+              );
               return;
             }
+
             if (checklist.fridgeChecked) {
               _hud.show('Fridge already checked.');
               return;
             }
+
             startFridgeMiniGame();
           },
         ));
@@ -1171,6 +1279,17 @@ class SaferAdventureGame extends FlameGame {
     // First-visit hazard prompts
     if (dest == Room.basement && _basementFlooded && !checklist.basementResolved) {
       Future.delayed(const Duration(milliseconds: 400), () async {
+        // Must restore power before dealing with the flooded basement
+        if (!checklist.powerRestored) {
+          add(
+            NeighborDialog(
+              message: 'Check a lamp upstairs to make sure the power is back on before dealing with the flooded basement.',
+              onComplete: () {},
+            ),
+          );
+          return;
+        }
+
         final yes = await _showYesNoDialog(
           'Flooded Basement',
           'Basement appears flooded.\nCall an electrician to inspect?',
