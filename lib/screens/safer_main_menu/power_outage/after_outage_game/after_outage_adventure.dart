@@ -336,7 +336,7 @@ class SaferAdventureGame extends FlameGame {
   List<Rect> get killZones => _killZones;
 
   // toggleable debug outlines
-  bool debugZones = false; // turn off for release
+  bool debugZones = true; // turn off for release
 
 
   // Checklist & overlay
@@ -361,9 +361,15 @@ class SaferAdventureGame extends FlameGame {
           // Parent owns the comeback transition
           await _fade.fadeToBlack(duration: 0.18);
 
-          if (tossedBad + savedGood > 0 && perfect) {
-            _markTaskDone(checklist.fridgeChecked, () { checklist.fridgeChecked = true; });
+            if (tossedBad + savedGood > 0 && perfect) {
+            _markTaskDone(checklist.fridgeChecked, () {
+              checklist.fridgeChecked = true;
+            });
             _hud.show('Fridge checked — food sorted!');
+
+            // Rebuild room interactives so the fridge hotspot disappears
+            _clearInteractives();
+            _buildInteractivesFor(_room);
           } else {
             _hud.show('Fridge check incomplete — try again later.');
           }
@@ -374,6 +380,7 @@ class SaferAdventureGame extends FlameGame {
           // tiny yield to ensure mini-game removed itself
           await Future<void>.delayed(const Duration(milliseconds: 1));
           await _fade.fadeInFromBlack(duration: 0.18);
+
         },
         onCancel: () async {
           await _fade.fadeToBlack(duration: 0.12);
@@ -755,36 +762,43 @@ class SaferAdventureGame extends FlameGame {
         height: 36,
       );
 
-      add(Doorway(
-        rect: recordRect,
-        label: 'Record Damage',
-        color: Colors.black.withOpacity(0.35),
-        textColor: Colors.black.withOpacity(0.90),
-        onEnter: () async {
-          if (checklist.frontYardVideo) {
-            _hud.show('Front yard already documented.');
-            return;
-          }
+      if (!checklist.frontYardVideo) {
+        late Doorway recordDoor;
+        recordDoor = Doorway(
+          rect: recordRect,
+          label: 'Record Damage',
+          color: Colors.black.withOpacity(0.35),
+          textColor: Colors.black.withOpacity(0.90),
+          onEnter: () async {
+            if (checklist.frontYardVideo) {
+              _hud.show('Front yard already documented.');
+              recordDoor.removeFromParent();
+              return;
+            }
 
-          final yes = await _showYesNoDialog(
-            'Front Yard',
-            'Take a quick video of the storm debris for insurance?',
-          );
-          if (yes) {
-            await _fade.fadeToBlack(duration: 0.18);
-            _frontLawnHasDebris = false;
-            _markTaskDone(checklist.frontYardVideo, () {
-              checklist.frontYardVideo = true;
-            });
-            _roomBox()?.room = Room.frontLawn;
-            await _fade.fadeInFromBlack(duration: 0.18);
-            _hud.show('Video taken — debris cleared.');
-          } else {
-            _hud.show('You can record it later.');
-          }
-        },
-      ));
+            final yes = await _showYesNoDialog(
+              'Front Yard',
+              'Take a quick video of the storm debris for insurance?',
+            );
+            if (yes) {
+              await _fade.fadeToBlack(duration: 0.18);
+              _frontLawnHasDebris = false;
+              _markTaskDone(checklist.frontYardVideo, () {
+                checklist.frontYardVideo = true;
+              });
+              _roomBox()?.room = Room.frontLawn;
+              await _fade.fadeInFromBlack(duration: 0.18);
+              _hud.show('Video taken — debris cleared.');
 
+              // remove hotspot once complete
+              recordDoor.removeFromParent();
+            } else {
+              _hud.show('You can record it later.');
+            }
+          },
+        );
+        add(recordDoor);
+      }
 
       } else if (room == Room.sidewalk) {
       // Doors to other rooms
@@ -850,83 +864,105 @@ class SaferAdventureGame extends FlameGame {
       );
 
       //Downed power line
-      add(Doorway(
-        rect: powerHotRect,
-        label: 'Downed Line',
-        color: Colors.black.withOpacity(0.35),
-        textColor: Colors.black.withOpacity(0.90),
-        onEnter: () async {
-          final checklist = this.checklist;
-          if (!_sidewalkDownedLine) {
-            if (checklist.sidewalkResolved) {
-              _hud.show('Sidewalk already safe.');
-            } else {
+      if (!checklist.sidewalkResolved) {
+        late Doorway lineDoor;
+        lineDoor = Doorway(
+          rect: powerHotRect,
+          label: 'Downed Line',
+          color: Colors.black.withOpacity(0.35),
+          textColor: Colors.black.withOpacity(0.90),
+          onEnter: () async {
+            final checklist = this.checklist;
+
+            // No downed line visible, just verify sidewalk and clear task
+            if (!_sidewalkDownedLine) {
+              if (checklist.sidewalkResolved) {
+                _hud.show('Sidewalk already safe.');
+                lineDoor.removeFromParent();
+              } else {
+                _markTaskDone(checklist.sidewalkResolved, () {
+                  checklist.sidewalkResolved = true;
+                });
+                _hud.show('Sidewalk checked — area is safe.');
+                lineDoor.removeFromParent();
+              }
+              return;
+            }
+
+            // Active downed line hazard
+            final yes = await _showYesNoDialog(
+              'Downed Power Line',
+              'A live wire is on the grass.\nCall the utility company to secure the area?',
+            );
+            if (yes) {
+              await _fade.fadeToBlack(duration: 0.22);
+              _sidewalkDownedLine = false;
               _markTaskDone(checklist.sidewalkResolved, () {
                 checklist.sidewalkResolved = true;
               });
-              _hud.show('Sidewalk checked — area is safe.');
+              children.whereType<RoomBox>().firstOrNull?.room = Room.sidewalk;
+              await _fade.fadeInFromBlack(duration: 0.22);
+              _hud.show('Utility notified — area safe.');
+
+              // remove hotspot once complete
+              lineDoor.removeFromParent();
+            } else {
+              _hud.show('Stay clear of the line!');
+              _sidewalkIgnored = true;
             }
-            return;
-          }
+          },
+        );
+        add(lineDoor);
+      }
 
-          final yes = await _showYesNoDialog(
-            'Downed Power Line',
-            'A live wire is on the grass.\nCall the utility company to secure the area?',
-          );
-          if (yes) {
-            await _fade.fadeToBlack(duration: 0.22);
-            _sidewalkDownedLine = false;
-            _markTaskDone(checklist.sidewalkResolved, () {
-              checklist.sidewalkResolved = true;
-            });
-            children.whereType<RoomBox>().firstOrNull?.room = Room.sidewalk;
-            await _fade.fadeInFromBlack(duration: 0.22);
-            _hud.show('Utility notified — area safe.');
-          } else {
-            _hud.show('Stay clear of the line!');
-            _sidewalkIgnored = true;
-          }
-        },
-      ));
       // leaky fire hydrant
-      add(Doorway(
-        rect: hydrantHotRect,
-        label: 'Leaky Hydrant',
-        color: Colors.black.withOpacity(0.35),
-        textColor: Colors.black,
-        onEnter: () async {
-          HapticFeedback.selectionClick();
-          if (checklist.leakyHydrantReported) {
-            _hud.show('Hydrant leak already reported.');
-            return;
-          }
+      if (!checklist.leakyHydrantReported) {
+        late Doorway hydrantDoor;
+        hydrantDoor = Doorway(
+          rect: hydrantHotRect,
+          label: 'Leaky Hydrant',
+          color: Colors.black.withOpacity(0.35),
+          textColor: Colors.black,
+          onEnter: () async {
+            HapticFeedback.selectionClick();
+            if (checklist.leakyHydrantReported) {
+              _hud.show('Hydrant leak already reported.');
+              hydrantDoor.removeFromParent();
+              return;
+            }
 
-          final yes = await _showYesNoDialog(
-            'Leaky Hydrant',
-            'Water is leaking from the hydrant.\nCall the water department?',
-          );
+            final yes = await _showYesNoDialog(
+              'Leaky Hydrant',
+              'Water is leaking from the hydrant.\nCall the water department?',
+            );
 
-          if (!yes) {
-            _hud.show('You can report it later.');
-            return;
-          }
+            if (!yes) {
+              _hud.show('You can report it later.');
+              return;
+            }
 
-          // fade, stop leak, tick checklist
-          await _fade.fadeToBlack(duration: 0.22);
+            // fade, stop leak, tick checklist
+            await _fade.fadeToBlack(duration: 0.22);
 
-          _hydrantLeaking = false;
+            _hydrantLeaking = false;
 
-          _markTaskDone(checklist.leakyHydrantReported, () {
-            checklist.leakyHydrantReported = true;
-          });
+            _markTaskDone(checklist.leakyHydrantReported, () {
+              checklist.leakyHydrantReported = true;
+            });
 
-          // force sidewalk art to refresh
-          children.whereType<RoomBox>().firstOrNull?.room = Room.sidewalk;
+            // force sidewalk art to refresh
+            children.whereType<RoomBox>().firstOrNull?.room = Room.sidewalk;
 
-          await _fade.fadeInFromBlack(duration: 0.22);
-          _hud.show('Water department notified — leak stopped.');
-        },
-      ));
+            await _fade.fadeInFromBlack(duration: 0.22);
+            _hud.show('Water department notified — leak stopped.');
+
+            // remove hotspot once complete
+            hydrantDoor.removeFromParent();
+          },
+        );
+        add(hydrantDoor);
+      }
+
     } else if (room == Room.neighbor) {
       add(Doorway(
         rect: neighborDoors['toSidewalk']!,
@@ -939,40 +975,48 @@ class SaferAdventureGame extends FlameGame {
         },
       ));
 
-      // check on neighboor
+      // check on neighbor
       final Rect neighborDoorRect = Rect.fromLTWH(
         size.x / 2 - 20,
         size.y - 72,
         40,
         28,
       );
-      add(Doorway(
-        rect: neighborDoorRect,
-        label: 'Check Neighbor',
-        color: Colors.black.withOpacity(0.35),
-        textColor: Colors.black.withOpacity(0.90),
-        onEnter: () async {
-          await _playSfx('openDoor.wav', volume: 0.9);
-          if (checklist.neighborChecked) {
-            _hud.show('Neighbor is okay.');
-            return;
-          }
-          // dialog with neighbor
-          add(
-            NeighborDialog(
-              message: 'Thank you for checking on me.\n'
-                      'I\'m okay, just a bit shaken after the storm.\n\n'
-                      'It really helps to have neighbors looking out for me.',
-              onComplete: () {
-                _markTaskDone(checklist.neighborChecked, () {
-                  checklist.neighborChecked = true;
-                });
-                _hud.show('Neighbor checked on.');
-              },
-            ),
-          );
-        },
-      ));
+
+      if (!checklist.neighborChecked) {
+        late Doorway neighborDoor;
+        neighborDoor = Doorway(
+          rect: neighborDoorRect,
+          label: 'Check Neighbor',
+          color: Colors.black.withOpacity(0.35),
+          textColor: Colors.black.withOpacity(0.90),
+          onEnter: () async {
+            await _playSfx('openDoor.wav', volume: 0.9);
+            if (checklist.neighborChecked) {
+              _hud.show('Neighbor is okay.');
+              neighborDoor.removeFromParent();
+              return;
+            }
+            // dialog with neighbor
+            add(
+              NeighborDialog(
+                message: 'Thank you for checking on me.\n'
+                        'I\'m okay, just a bit shaken after the storm.\n\n'
+                        'It really helps to have neighbors looking out for me.',
+                onComplete: () {
+                  _markTaskDone(checklist.neighborChecked, () {
+                    checklist.neighborChecked = true;
+                  });
+                  _hud.show('Neighbor checked on.');
+                  neighborDoor.removeFromParent();
+                },
+              ),
+            );
+          },
+        );
+        add(neighborDoor);
+      }
+
     } else if (room == Room.kitchen) {
       add(Doorway(
         rect: kitchenDoors['toLiving']!,
@@ -1017,17 +1061,26 @@ class SaferAdventureGame extends FlameGame {
         height: doorBarH,
       );
 
-      add(Doorway(
-        rect: fridgeDoorRect,
-        label: 'Fridge Check',
-        color: Colors.black.withOpacity(0.35),
-        onEnter: () async {
-          HapticFeedback.selectionClick();
-          if (!checklist.powerRestored) { _hud.show('Restore power first (check a lamp).'); return; }
-          if (checklist.fridgeChecked)   { _hud.show('Fridge already checked.');            return; }
-          startFridgeMiniGame();
-        },
-      ));
+      if (!checklist.fridgeChecked) {
+        add(Doorway(
+          rect: fridgeDoorRect,
+          label: 'Fridge Check',
+          color: Colors.black.withOpacity(0.35),
+          onEnter: () async {
+            HapticFeedback.selectionClick();
+            if (!checklist.powerRestored) {
+              _hud.show('Restore power first (check a lamp).');
+              return;
+            }
+            if (checklist.fridgeChecked) {
+              _hud.show('Fridge already checked.');
+              return;
+            }
+            startFridgeMiniGame();
+          },
+        ));
+      }
+
 
     }
     // Update background + solids
