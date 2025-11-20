@@ -69,9 +69,9 @@ class _AfterOutageGamePageState extends State<AfterOutageGamePage> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontSize: 12,
-                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.98),
+                                      fontWeight: FontWeight.w700,
                                     ),
                               ),
                               ValueListenableBuilder<String>(
@@ -84,10 +84,10 @@ class _AfterOutageGamePageState extends State<AfterOutageGamePage> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          fontSize: 11,
-                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                          fontSize: 13,
+                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.95),
+                                          fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ),

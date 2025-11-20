@@ -285,10 +285,14 @@ class SaferAdventureGame extends FlameGame {
   late final Player _player;
   late final HudToast _hud;
   late final FadeCurtain _fade;
-  final ValueNotifier<String> roomLabel = ValueNotifier<String>('');
+  final ValueNotifier<String> roomLabel = ValueNotifier<String>('Living Room');
 
   // Shows the last solid object you walked into
   final ValueNotifier<String> bumpLabel = ValueNotifier<String>('');
+  double _bumpTimer = 0.0;
+  static const double _bumpHoldSeconds = 0.8; // how long the label lingers
+  String? _lastBumpName;
+
 
   // Named zones
   List<({Rect rect, String name})> _namedSolids = [];
@@ -308,8 +312,25 @@ class SaferAdventureGame extends FlameGame {
 
   // Called by Player when bumping into a solid
   void _notifyBump(String? name) {
-    bumpLabel.value = (name ?? '').trim();
+    final trimmed = (name ?? '').trim();
+
+    // If we’re not currently bumping anything, just let the timer wind down
+    if (trimmed.isEmpty) {
+      return;
+    }
+
+    // If it’s the same object, just refresh the timer
+    if (_lastBumpName == trimmed && _bumpTimer > 0) {
+      _bumpTimer = _bumpHoldSeconds;
+      return;
+    }
+
+    // update label + reset timer
+    _lastBumpName = trimmed;
+    bumpLabel.value = trimmed;
+    _bumpTimer = _bumpHoldSeconds;
   }
+
 
   
   // Living room broken glass state & guard 
@@ -476,10 +497,25 @@ class SaferAdventureGame extends FlameGame {
     }
   }
 
+  @override
+  void update(double dt) {
+    super.update(dt);
+
+    if (_bumpTimer > 0) {
+      _bumpTimer -= dt;
+      if (_bumpTimer <= 0) {
+        _bumpTimer = 0;
+        _lastBumpName = null;
+        bumpLabel.value = '';
+      }
+    }
+  }
+
   bool get isTransitioning => _transitioning;
 
   @override
   Color backgroundColor() => const Color(0xFF0B1220);
+
 
   @override
   Future<void> onLoad() async {
