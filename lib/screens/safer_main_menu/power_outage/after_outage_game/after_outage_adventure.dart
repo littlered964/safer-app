@@ -469,10 +469,10 @@ class SaferAdventureGame extends FlameGame {
 
   // Door rectangles per room so we can spawn right at doors
   Map<String, Rect> _doorRectsFor(Room room) {
-    Rect bottomDoor()   => Rect.fromLTWH(size.x / 2 - 20, size.y - 48, 40, 28);
+    Rect bottomDoor()   => Rect.fromLTWH(size.x / 2 - 24, size.y - 50, 48, 30);
     Rect topDoor()      => Rect.fromLTWH(size.x / 2 - 20, 20,               40, 28);
-    Rect rightDoor()    => Rect.fromLTWH(size.x - 56,    size.y / 2 - 20,   40, 40);
-    Rect leftDoor()     => Rect.fromLTWH(16,             size.y / 2 - 20,   40, 40);
+    Rect rightDoor()    => Rect.fromLTWH(size.x - 60,    size.y / 2 + 4,    44, 40);
+    Rect leftDoor()     => Rect.fromLTWH(16,             size.y / 2 + 4,    40, 40);
     Rect topRightDoor() => Rect.fromLTWH(size.x - 80,    52,                60, 28);
 
     switch (room) {
@@ -485,9 +485,28 @@ class SaferAdventureGame extends FlameGame {
       case Room.basement:
         return {'toLiving': topDoor()};
       case Room.frontLawn:
-        return {'toLiving': bottomDoor(), 'toSidewalk': topRightDoor()};
+        return {'toLiving': Rect.fromLTWH(
+          size.x / 2 - 24,  // wider door
+          size.y - 210,      // higher up
+          48,
+          30,
+        ), 'toSidewalk': topRightDoor()};
       case Room.sidewalk:
-        return {'toFrontLawn': leftDoor(), 'toNeighbor': rightDoor()};
+        // custom door positions (moved up to match new visuals)
+        return {
+          'toFrontLawn': Rect.fromLTWH(
+            16,
+            size.y * 0.30, // was size.y / 2 - 20
+            40,
+            40,
+          ),
+          'toNeighbor': Rect.fromLTWH(
+            size.x - 56,
+            size.y * 0.30, // was size.y / 2 - 20
+            40,
+            40,
+          ),
+        };
       case Room.neighbor:
         return {
           'toSidewalk': Rect.fromLTWH(16, size.y * 0.10, 40, 40),
@@ -517,65 +536,81 @@ class SaferAdventureGame extends FlameGame {
   Color backgroundColor() => const Color(0xFF0B1220);
 
 
-  @override
-  Future<void> onLoad() async {
-    images.prefix = '';
-    _sfxPlayer = AudioPlayer(playerId: 'after_outage_sfx')
-      ..setReleaseMode(ReleaseMode.stop);
+    @override
+    Future<void> onLoad() async {
+      images.prefix = '';
+      _sfxPlayer = AudioPlayer(playerId: 'after_outage_sfx')
+        ..setReleaseMode(ReleaseMode.stop);
 
-    final roomBox = RoomBox(room: _room)..priority = 0;
-    add(roomBox);
+      // Build the room background
+      final roomBox = RoomBox(room: _room)..priority = 0;
+      add(roomBox);
 
-    _hud = HudToast()..priority = 1000;
-    add(_hud);
+      // HUD
+      _hud = HudToast()..priority = 1000;
+      add(_hud);
 
-    _player = Player()
-      ..position = Vector2(size.x * 0.22, size.y * 0.40)
-      ..priority = 50;
-    add(_player);
+      // Player
+      _player = Player()
+        ..priority = 50;
+      add(_player);
 
-    _fade = FadeCurtain(size: size)..priority = 2000;
-    add(_fade);
-    add(_ZoneDebugOverlay()..priority = 1200);
+      // *** NEW: spawn in open floor on the right side, not inside the couch ***
+      _player.position = Vector2(size.x * 0.60, size.y * 0.70);
 
+      // Fade curtain + debug overlay
+      _fade = FadeCurtain(size: size)..priority = 2000;
+      add(_fade);
+      add(_ZoneDebugOverlay()..priority = 1200);
 
-    // Show intro overlay and lock input until "Start"
-    lockInput(true);
-    add(HowToPlayOverlay());
+      // Show intro overlay and lock input until "Start"
+      lockInput(true);
+      add(HowToPlayOverlay());
 
+      // Checklist overlay
+      _checklist = ChecklistOverlay()..priority = 1300;
+      add(_checklist);
 
-    _checklist = ChecklistOverlay()..priority = 1300;
-    add(_checklist);
+      // Build doorways/hotspots and solids for the initial room
+      _buildInteractivesFor(_room);
+      roomBox.recomputeSolids();
 
+      // SAFETY NUDGE: if initial spawn overlaps a solid, move to a secondary clear spot
+      {
+        const double hb = 16.0;
+        Rect hitboxAt(Vector2 p) =>
+            Rect.fromCenter(center: Offset(p.x, p.y), width: hb, height: hb);
+        final solidRects = solids;
+        Vector2 p = _player.position.clone();
+        bool collides(Rect r) => solidRects.any((s) => r.overlaps(s));
 
-    _buildInteractivesFor(_room);
-    roomBox.recomputeSolids();
-
-    // SAFETY NUDGE: if initial spawn overlaps a solid, move to a secondary clear spot
-    {
-      const double hb = 16.0;
-      Rect hitboxAt(Vector2 p) =>
-          Rect.fromCenter(center: Offset(p.x, p.y), width: hb, height: hb);
-      final solidRects = this.solids;
-      Vector2 p = _player.position.clone();
-      bool collides(Rect r) => solidRects.any((s) => r.overlaps(s));
-
-      if (collides(hitboxAt(p))) {
-        // try a couple of backup positions
-        final candidates = <Vector2>[
-          Vector2(size.x * 0.22, size.y * 0.40), // primary
-          Vector2(size.x * 0.30, size.y * 0.35),
-          Vector2(size.x * 0.25, size.y * 0.55),
-          Vector2(size.x * 0.40, size.y * 0.35),
-        ];
-        for (final c in candidates) {
-          if (!collides(hitboxAt(c))) {
-            _player.position = c;
-            break;
+        if (collides(hitboxAt(p))) {
+          // Try a few backup positions in the living room
+          final candidates = <Vector2>[
+            // primary safe spot on the right side
+            Vector2(size.x * 0.60, size.y * 0.70),
+            // slight variations around it
+            Vector2(size.x * 0.55, size.y * 0.68),
+            Vector2(size.x * 0.65, size.y * 0.68),
+            Vector2(size.x * 0.58, size.y * 0.62),
+          ];
+          for (final c in candidates) {
+            if (!collides(hitboxAt(c))) {
+              _player.position = c;
+              break;
+            }
           }
         }
-      }
+
+      _initialized = true;
+
+      // Ensure the room label is set before the UI builds
+      roomLabel.value = _roomLabel(_room);
+
+      // Initial hint
+      _hud.show('Check a lamp to see if power is back on.');
     }
+
 
     _initialized = true;
 
@@ -881,7 +916,7 @@ class SaferAdventureGame extends FlameGame {
 
       // front yard video interaction
       final Rect recordRect = Rect.fromCenter(
-        center: Offset(size.x * 0.76, size.y * 0.70),
+        center: Offset(size.x * 0.76, size.y * 0.64),
         width: 64,
         height: 36,
       );
@@ -969,7 +1004,7 @@ class SaferAdventureGame extends FlameGame {
       final Rect grassRect  = Rect.fromLTWH(inner.left, pathRect.bottom, inner.width, grassH);
 
       // Baseline Y for both hotspots (sitting on the sidewalk just above the grass)
-      final double hotspotY = grassRect.top - 18.0;
+      final double hotspotY = grassRect.top - 26.0;
 
       // Hydrant hotspot
       const double hydrantHotW = 40.0;
@@ -1114,7 +1149,7 @@ class SaferAdventureGame extends FlameGame {
       // check on neighbor
       final Rect neighborDoorRect = Rect.fromLTWH(
         size.x / 2 - 20,
-        size.y - 72,
+        size.y - 210,
         40,
         28,
       );
@@ -1239,8 +1274,12 @@ class SaferAdventureGame extends FlameGame {
     Vector2 center() => Vector2(size.x / 2, size.y / 2);
 
     if (spawnFromKey == null || !doors.containsKey(spawnFromKey)) {
+      if (dest == Room.living) {
+        return Vector2(size.x * 0.60, size.y * 0.70);
+      }
       return center();
     }
+
     final r = doors[spawnFromKey]!;
     const inside = 24.0;
 
@@ -1381,7 +1420,10 @@ class SaferAdventureGame extends FlameGame {
       width: inner.width * 0.46,
       height: inner.height * 0.34,
     );
-    final baseCenter = Offset(rug.right + 26.0, rug.top - 10.0);
+    final baseCenter = Offset(
+      rug.right + 52.0,
+      rug.top - 90.0
+    );
     return Vector2(baseCenter.dx, baseCenter.dy);
   }
 
@@ -1531,7 +1573,7 @@ class SaferAdventureGame extends FlameGame {
     }
 
     // put player in the same open spot as first time
-    _player.position = Vector2(size.x * 0.22, size.y * 0.40);
+    _player.position = Vector2(size.x * 0.60, size.y * 0.70);
 
     // make sure input is unlocked
     lockInput(false);
@@ -1553,9 +1595,12 @@ class SaferAdventureGame extends FlameGame {
 
       if (collides(hitboxAt(p))) {
         final candidates = <Vector2>[
-          Vector2(size.x * 0.30, size.y * 0.35),
-          Vector2(size.x * 0.25, size.y * 0.55),
-          Vector2(size.x * 0.40, size.y * 0.35),
+          // main intended spawn
+          Vector2(size.x * 0.50, size.y * 0.68),
+          // slightly left
+          Vector2(size.x * 0.45, size.y * 0.70),
+          // slightly right
+          Vector2(size.x * 0.55, size.y * 0.70),
         ];
         for (final c in candidates) {
           if (!collides(hitboxAt(c))) {
@@ -1925,18 +1970,24 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
 
     // Choose broken vs clean based on game state
     final game = gameRef;
-    final ui.Image? livingImg = game._livingGlassPresent ? _livingBgBroken : _livingBgClean;
+    final ui.Image? livingImg =
+        game._livingGlassPresent ? _livingBgBroken : _livingBgClean;
 
+    // Background image
     if (livingImg != null) {
-      final src = Rect.fromLTWH(0, 0, livingImg.width.toDouble(), livingImg.height.toDouble());
-      final dest = inner;
+      final src = Rect.fromLTWH(
+        0,
+        0,
+        livingImg.width.toDouble(),
+        livingImg.height.toDouble(),
+      );
       final paint = Paint()
         ..isAntiAlias = false
         ..filterQuality = FilterQuality.none;
       final clip = RRect.fromRectAndRadius(inner, const Radius.circular(10));
       canvas.save();
       canvas.clipRRect(clip);
-      canvas.drawImageRect(livingImg, src, dest, paint);
+      canvas.drawImageRect(livingImg, src, inner, paint);
       canvas.restore();
     } else {
       canvas.drawRRect(
@@ -1946,240 +1997,246 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     }
 
     // Doors
-    final topDoorRect    = Rect.fromLTWH(size.x / 2 - 20, 20, 40, 28);
-    final rightDoorRect  = Rect.fromLTWH(size.x - 56, size.y / 2 - 20, 40, 40);
-    final bottomDoorRect = Rect.fromLTWH(size.x / 2 - 20, size.y - 48, 40, 28);
+    final topDoorRect = Rect.fromLTWH(size.x / 2 - 20, 20, 40, 28);
+    final rightDoorRect =
+        Rect.fromLTWH(size.x - 60, size.y / 2 + 4, 44, 40);
+    final bottomDoorRect =
+        Rect.fromLTWH(size.x / 2 - 24, size.y - 50, 48, 30);
     _drawFrontDoor(canvas, topDoorRect);
     _drawInteriorDoorway(canvas, rightDoorRect);
     _drawStairsDown(canvas, bottomDoorRect);
 
-    // living tunables
-    // broken glass
+    // Tunables for new layout
+    // Broken glass
     bool   L_GLASS_USE_PERCENT = false;
-
-    // Percent mode
-    double L_GLASS_LEFT_PCT = 0.03;
-    double L_GLASS_TOP_PCT  = 0.03;
-    double L_GLASS_W_PCT    = 0.22;
-    double L_GLASS_H_PCT    = 0.18;
-
-    // Pixel mode
-    double L_GLASS_LEFT_PX  = 8.0;
-    double L_GLASS_TOP_PX   = 8.0;
-    double L_GLASS_WIDTH_PX = 50.0;
-    double L_GLASS_HEIGHT_PX= 35.0;
+    double L_GLASS_LEFT_PCT  = 0.03;
+    double L_GLASS_TOP_PCT   = 0.03;
+    double L_GLASS_W_PCT     = 0.22;
+    double L_GLASS_H_PCT     = 0.18;
+    double L_GLASS_LEFT_PX   = 8.0;
+    double L_GLASS_TOP_PX    = 8.0;
+    double L_GLASS_WIDTH_PX  = 50.0;
+    double L_GLASS_HEIGHT_PX = 35.0;
 
     // Rug anchor
     double L_RUG_CX_OFFSET   = 10.0;
-    double L_RUG_CY_OFFSET   = 28.0; 
+    double L_RUG_CY_OFFSET   = 28.0;
     double L_RUG_W_FACTOR    = 0.46;
     double L_RUG_H_FACTOR    = 0.34;
 
     // Lamp relative to rug
-    double L_LAMP_RIGHT_PAD  = 26.0;
-    double L_LAMP_UP_PAD     = 10.0;
+    double L_LAMP_RIGHT_PAD  = 52.0;
+    double L_LAMP_UP_PAD     = 90.0;
 
-    // Plants
-    double L_PLANT_W      = inner.width * 0.20;
-    double L_PLANT_H      = 62.0;
-    double L_PLANT_PAD_X  = 8.0;
-    double L_PLANT_PAD_Y  = 10.0;
+    // rug + lamp
 
-    // TV on left, L-couch to the right
-    // TV stand
-    double L_TV_W            = 14.0;
-    double L_TV_H_FACTOR     = 0.15;
-    double L_TV_LEFT_PAD     = 1.0;
-    double L_TV_Y_FACTOR     = -0.22;
-
-    // couch
-    double L_CO_H_W        = 148.0;
-    double L_CO_H_H        = 30.0;
-    double L_CO_V_W        = 18.0;
-    double L_CO_V_H        = 160.0;  //
-
-    // Horizontal piece
-    bool   L_CO_H_ANCHOR_BY_TV = false;
-
-    // If anchored by TV:
-    double L_CO_H_GAP_FROM_TV  = 36.0;
-    double L_CO_H_Y_OFFSET     = -30.0;
-
-    // If absolute:
-    double L_CO_H_ABS_X        = 34.0;
-    double L_CO_H_ABS_Y        = 85.0;
-
-    // Vertical piece
-    bool   L_CO_V_RELATIVE_TO_H = false;
-
-    // If relative
-    double L_CO_V_REL_DX       = -12.0;
-    double L_CO_V_REL_DY       = 30.0;
-
-    // If absolute
-    double L_CO_V_ABS_X        = 160.0;
-    double L_CO_V_ABS_Y        = 110.0;
-
-    // Table
-    double L_TABLE_W_FACTOR  = 0.80; 
-    double L_TABLE_H         = 28.0;
-    double L_TABLE_Y_SHIFT   = 50.0;
-
-    // Chairs
-    double L_CHAIR_W         = 20.0;
-    double L_CHAIR_H         = 15.0;
-    int    L_CHAIR_COUNT     = 3; 
-    double L_CHAIR_EDGE_INSET= 35.0;
-    double L_CHAIR_PUSH_IN   = 0.0;
-
-
-    // Derived layout
     final rugRect = Rect.fromCenter(
-      center: Offset(inner.center.dx + L_RUG_CX_OFFSET, inner.center.dy + L_RUG_CY_OFFSET),
+      center: Offset(
+        inner.center.dx + L_RUG_CX_OFFSET,
+        inner.center.dy + L_RUG_CY_OFFSET,
+      ),
       width: inner.width * L_RUG_W_FACTOR,
       height: inner.height * L_RUG_H_FACTOR,
     );
-    final lampBase = Offset(rugRect.right + L_LAMP_RIGHT_PAD, rugRect.top - L_LAMP_UP_PAD);
+
+    final lampBase = Offset(
+      rugRect.right + L_LAMP_RIGHT_PAD,
+      rugRect.top - L_LAMP_UP_PAD,
+    );
     _drawFloorLamp(canvas, baseCenter: lampBase, on: lampOn);
 
-    // Broken glass geometry
+    // Broken glass hazard
+
     final Rect glassRect = L_GLASS_USE_PERCENT
         ? Rect.fromLTWH(
-            inner.left + inner.width  * L_GLASS_LEFT_PCT,
-            inner.top  + inner.height * L_GLASS_TOP_PCT,
-            inner.width  * L_GLASS_W_PCT,
+            inner.left + inner.width * L_GLASS_LEFT_PCT,
+            inner.top + inner.height * L_GLASS_TOP_PCT,
+            inner.width * L_GLASS_W_PCT,
             inner.height * L_GLASS_H_PCT,
           )
         : Rect.fromLTWH(
             inner.left + L_GLASS_LEFT_PX,
-            inner.top  + L_GLASS_TOP_PX,
+            inner.top + L_GLASS_TOP_PX,
             L_GLASS_WIDTH_PX,
             L_GLASS_HEIGHT_PX,
           );
 
-    // Expose to game so SaferAdventureGame can hug sweep "doors" to its edges
+    // Expose to game so sweep hotspots can hug its edges
     currentLivingGlassRect = glassRect;
 
-    // Register kill zone only while glass is present
     if (game._livingGlassPresent) {
       namedKills.add((rect: glassRect, name: 'Broken Glass'));
+      // use this as the living-room hazard band
+      (gameRef).setKillZones([glassRect]);
     }
 
+    // furniture layout 
 
-    // Plants
-    // bottom-left
-    namedSolids.add((
-      rect: Rect.fromLTWH(
-        inner.left + L_PLANT_PAD_X,
-        inner.bottom - L_PLANT_PAD_Y - L_PLANT_H,
-        L_PLANT_W,
-        L_PLANT_H,
-      ),
-      name: 'Plant',
-    ));
+    // TV on right wall
+    const double TV_W_PCT   = 0.06;
+    const double TV_H_PCT   = 0.14;
+    const double TV_RIGHT_PX = 1.0;
+    const double TV_Y_PCT    = 0.29;
 
-    // bottom-right
-    namedSolids.add((
-      rect: Rect.fromLTWH(
-        inner.right - L_PLANT_PAD_X - L_PLANT_W,
-        inner.bottom - L_PLANT_PAD_Y - L_PLANT_H,
-        L_PLANT_W,
-        L_PLANT_H,
-      ),
-      name: 'Plant',
-    ));
-
-    // TV
-    final double tvW = L_TV_W;
-    final double tvH = inner.height * L_TV_H_FACTOR;
-    final double tvX = inner.left + L_TV_LEFT_PAD;
-    final double tvY = inner.center.dy + inner.height * L_TV_Y_FACTOR;
-    final Rect tvRect = Rect.fromLTWH(tvX, tvY, tvW, tvH);
+    final double tvW = inner.width * TV_W_PCT;
+    final double tvH = inner.height * TV_H_PCT;
+    final Rect tvRect = Rect.fromLTWH(
+      inner.right - TV_RIGHT_PX - tvW,
+      inner.top + inner.height * TV_Y_PCT,
+      tvW,
+      tvH,
+    );
     namedSolids.add((rect: tvRect, name: 'TV Stand'));
 
-    // couch pieces
+    // Main vertical couch on the left
+    const double SOFA_W_PCT   = 0.05;
+    const double SOFA_H_PCT   = 0.24;
+    const double SOFA_LEFT_PCT = 0.13;
+    const double SOFA_TOP_PCT  = 0.24;
 
-    // Horizontal piece
-    late double coH_X, coH_Y;
-    if (L_CO_H_ANCHOR_BY_TV) {
-      coH_X = tvRect.right + L_CO_H_GAP_FROM_TV;
-      coH_Y = inner.center.dy + L_CO_H_Y_OFFSET;
-    } else {
-      coH_X = inner.left + L_CO_H_ABS_X;
-      coH_Y = inner.top  + L_CO_H_ABS_Y;
-    }
-    final Rect couchHorizontal = Rect.fromLTWH(coH_X, coH_Y, L_CO_H_W, L_CO_H_H);
-    namedSolids.add((rect: couchHorizontal, name: 'Couch'));
+    final Rect sofaRect = Rect.fromLTWH(
+      inner.left + inner.width * SOFA_LEFT_PCT,
+      inner.top + inner.height * SOFA_TOP_PCT,
+      inner.width * SOFA_W_PCT,
+      inner.height * SOFA_H_PCT,
+    );
+    namedSolids.add((rect: sofaRect, name: 'Couch'));
 
-    // Vertical piece
-    late double coV_X, coV_Y;
-    if (L_CO_V_RELATIVE_TO_H) {
-      coV_X = couchHorizontal.left   + L_CO_V_REL_DX;
-      coV_Y = couchHorizontal.bottom + L_CO_V_REL_DY;
-    } else {
-      coV_X = inner.left + L_CO_V_ABS_X;
-      coV_Y = inner.top  + L_CO_V_ABS_Y;
-    }
-    final Rect couchVertical = Rect.fromLTWH(coV_X, coV_Y, L_CO_V_W, L_CO_V_H);
-    namedSolids.add((rect: couchVertical, name: 'Couch'));
+    // Two love seats (shorter, slightly up + left)
+    const double LOVE_W_PCT = 0.26;   // same width
+    const double LOVE_H_PCT = 0.04;   // was 0.17 → less tall
+
+    final double loveW = inner.width * LOVE_W_PCT;
+    final double loveH = inner.height * LOVE_H_PCT;
+
+    // shift X slightly left, Y slightly up for both
+    final Offset loveTopCenter = Offset(
+      inner.center.dx - inner.width * 0.04,    // a bit left
+      inner.top + inner.height * 0.15,         // was 0.30 → slightly up
+    );
+    final Offset loveBottomCenter = Offset(
+      inner.center.dx - inner.width * 0.04,    // same X shift
+      inner.top + inner.height * 0.55,         // was 0.63 → slightly up
+    );
+
+    // Recreate rectangles from new centers
+    final Rect loveTopRect = Rect.fromCenter(
+      center: loveTopCenter,
+      width: loveW,
+      height: loveH,
+    );
+    final Rect loveBottomRect = Rect.fromCenter(
+      center: loveBottomCenter,
+      width: loveW,
+      height: loveH,
+    );
+
+    // Add to solids
+    namedSolids.add((rect: loveTopRect, name: 'Loveseat'));
+    namedSolids.add((rect: loveBottomRect, name: 'Loveseat'));
 
 
+    // Small end tables between couch / love seats
+    const double ET_W_PCT = 0.16;
+    const double ET_H_PCT = 0.07;
+    const double ET_DX    = 0.18; // how far from rug / center horizontally
 
-    // Dining table
-    final double tableW = rugRect.width * L_TABLE_W_FACTOR;
-    final double tableY = rugRect.center.dy + L_TABLE_Y_SHIFT;
+    final double etW = inner.width * ET_W_PCT;
+    final double etH = inner.height * ET_H_PCT;
 
+    // One table just above the couch, one just below.
+    // Both centered horizontally on the couch.
+    // End tables above and below couch, shifted slightly right
+    final Rect topEndTable = Rect.fromCenter(
+      center: Offset(
+        sofaRect.center.dx + inner.width * 0.05,   // shifted right
+        sofaRect.top - etH / 2 - 4,                // above couch
+      ),
+      width: etW,
+      height: etH,
+    );
+
+    final Rect bottomEndTable = Rect.fromCenter(
+      center: Offset(
+        sofaRect.center.dx + inner.width * 0.05,   // shifted right (same as top)
+        sofaRect.bottom + etH / 2 + 4,             // below couch
+      ),
+      width: etW,
+      height: etH,
+    );
+
+    namedSolids.add((rect: topEndTable, name: 'End Table'));
+    namedSolids.add((rect: bottomEndTable, name: 'End Table'));
+
+
+    // Bookshelf tunables
+    const double SHELF_W_PCT      = 0.12;  // wider/narrower
+    const double SHELF_H_PCT      = 0.25;  // taller/shorter
+    const double SHELF_RIGHT_PAD  = 2.0;   // distance from right wall
+    const double SHELF_BOTTOM_PAD = 28.0;  // distance up from bottom
+
+    final double shelfW = inner.width * SHELF_W_PCT;
+    final double shelfH = inner.height * SHELF_H_PCT;
+    final Rect shelfRect = Rect.fromLTWH(
+      inner.right - shelfW - SHELF_RIGHT_PAD,
+      inner.bottom - shelfH - SHELF_BOTTOM_PAD,
+      shelfW,
+      shelfH,
+    );
+    namedSolids.add((rect: shelfRect, name: 'Bookshelf'));
+
+    // Bottom-left oval table with two chairs
+    const double TBL_W_PCT = 0.11;
+    const double TBL_H_PCT = 0.14;
+
+    final Offset tableCenter = Offset(
+      inner.left + inner.width * 0.20,   // ← left/right
+      inner.bottom - inner.height * 0.18 // ← up/down
+    );
     final Rect tableRect = Rect.fromCenter(
-      center: Offset(rugRect.center.dx - 6, tableY),
-      width: tableW,
-      height: L_TABLE_H,
+      center: tableCenter,
+      width: inner.width * TBL_W_PCT,
+      height: inner.height * TBL_H_PCT,
     );
     namedSolids.add((rect: tableRect, name: 'Dining Table'));
 
-    // 6 Chairs 
-    final double chairW = L_CHAIR_W;
-    final double chairH = L_CHAIR_H;
+    // Two dining chairs, one on each side of the table
+    const double CH_W_PCT   = 0.08;
+    const double CH_H_PCT   = 0.08;
+    const double CH_DX_PCT  = 0.12; // how far left/right from table center
 
-    // positions spread evenly across the table width with a small edge inset
-    final double leftX  = tableRect.left  + L_CHAIR_EDGE_INSET;
-    final double rightX = tableRect.right - L_CHAIR_EDGE_INSET;
-    final List<double> chairXs = [
-      leftX,
-      (leftX + rightX) / 2,
-      rightX,
-    ];
+    final double chW = inner.width * CH_W_PCT;
+    final double chH = inner.height * CH_H_PCT;
 
-    // Y centers that tuck under the table edge for a pushed in look
-    final double topChairsCenterY    = tableRect.top    - (chairH / 2 - L_CHAIR_PUSH_IN);
-    final double bottomChairsCenterY = tableRect.bottom + (chairH / 2 - L_CHAIR_PUSH_IN);
+    final Rect leftChairRect = Rect.fromCenter(
+      center: tableCenter.translate(-inner.width * CH_DX_PCT, 0),
+      width: chW,
+      height: chH,
+    );
+    final Rect rightChairRect = Rect.fromCenter(
+      center: tableCenter.translate(inner.width * CH_DX_PCT, 0),
+      width: chW,
+      height: chH,
+    );
+    namedSolids.add((rect: leftChairRect, name: 'Chair'));
+    namedSolids.add((rect: rightChairRect, name: 'Chair'));
 
-    // helper to build a chair rect by center
-    Rect _chairAt(double cx, double cy) =>
-        Rect.fromCenter(center: Offset(cx, cy), width: chairW, height: chairH);
-
-    // Top row
-    for (int i = 0; i < L_CHAIR_COUNT; i++) {
-      namedSolids.add((rect: _chairAt(chairXs[i], topChairsCenterY), name: 'Chair'));
-    }
-
-    // Bottom row 
-    for (int i = 0; i < L_CHAIR_COUNT; i++) {
-      namedSolids.add((rect: _chairAt(chairXs[i], bottomChairsCenterY), name: 'Chair'));
-    }
-
-    // Register for collisions + debug overlay + UI label
+    // Register for collisions + debug overlay + bump label
     (gameRef).setNamedSolids(namedSolids);
     (gameRef).setNamedKills(namedKills);
 
-    // light entire room
+    // Light entire room if lamp on
     if (lampOn) {
       final softRoomLight = Paint()
         ..blendMode = BlendMode.plus
         ..color = const Color(0x33FFF7C2);
-      canvas.drawRRect(RRect.fromRectAndRadius(inner, const Radius.circular(10)), softRoomLight);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(inner, const Radius.circular(10)),
+        softRoomLight,
+      );
     }
 
-    // Gentle vignette to avoid flat look
+    // Gentle vignette for depth
     final vignette = Paint()
       ..shader = RadialGradient(
         center: Alignment.topCenter,
@@ -2187,7 +2244,10 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
         colors: [Colors.white.withOpacity(0.06), Colors.transparent],
         stops: const [0.0, 1.0],
       ).createShader(inner);
-    canvas.drawRRect(RRect.fromRectAndRadius(inner, const Radius.circular(10)), vignette);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(inner, const Radius.circular(10)),
+      vignette,
+    );
   }
 
 
@@ -2246,7 +2306,7 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
       RRect.fromRectAndRadius(trDoorRect.inflate(2), const Radius.circular(6)),
       Paint()..color = Colors.white.withOpacity(0.12),
     );
-    final bottomDoorRect = Rect.fromLTWH(size.x / 2 - 20, size.y - 48, 40, 28);
+    final bottomDoorRect = Rect.fromLTWH(size.x / 2 - 24, size.y - 210, 48, 30,);
     canvas.drawRRect(
       RRect.fromRectAndRadius(bottomDoorRect, const Radius.circular(6)),
       Paint()..color = Colors.white.withOpacity(0.10),
@@ -2263,7 +2323,7 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     final leftTreeRect = Rect.fromCircle(
       center: Offset(
         inner.left + inner.width * 0.20,
-        inner.top + inner.height * 0.65,
+        inner.top + inner.height * 0.55,
       ),
       radius: inner.width * 0.08,
     );
@@ -2371,7 +2431,7 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
       // Position roughly matched to hotspot band
       final Offset hydrantCenter = Offset(
         pathRect.left + pathRect.width * 0.70,
-        grassRect.top - 20,
+        grassRect.top - 28,
       );
 
       final Paint hydrantPaint = Paint()..color = const Color(0xFFB71C1C);
@@ -2457,9 +2517,9 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     }
 
 
-    // Door overlays 
-    final leftDoorRect  = Rect.fromLTWH(16, size.y / 2 - 20, 40, 40);
-    final rightDoorRect = Rect.fromLTWH(size.x - 56, size.y / 2 - 20, 40, 40);
+    // Door overlays (moved up to match functional doors)
+    final leftDoorRect  = Rect.fromLTWH(16, size.y * 0.30, 40, 40);
+    final rightDoorRect = Rect.fromLTWH(size.x - 56, size.y * 0.30, 40, 40);
     for (final r in [leftDoorRect, rightDoorRect]) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(r, const Radius.circular(8)),
@@ -2467,12 +2527,13 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
       );
     }
 
+
     // road dead zone
     final Rect roadRect = Rect.fromLTRB(
       rect.left,
       rect.top,
       rect.right,
-      leftDoorRect.top - 15,
+      leftDoorRect.top - 8,
     );
     namedSolids.add((rect: roadRect, name: 'Road'));
 
@@ -2612,7 +2673,7 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     // bottom door visual
     final bottomDoorRect = Rect.fromLTWH(
       game.size.x / 2 - 20,
-      game.size.y - 48,
+      game.size.y - 210,
       40,
       28,
     );
@@ -2623,7 +2684,7 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
 
     // bush dead zones
     final double bushBandHeight = inner.height * 0.13;
-    final double bushTop = inner.bottom - bushBandHeight;
+    final double bushTop = inner.bottom - bushBandHeight - 72;
     final double gapHalfWidth = inner.width * 0.09;
 
     final Rect leftBushes = Rect.fromLTRB(
