@@ -49,6 +49,7 @@ flutter:
     - assets/locale/
     - assets/audio/
     - assets/images/sprites/main_guy_3x4_32.png
+    - assets/images/sprites/main_girl_4x8_64.png
 
   fonts:
     - family: Raleway

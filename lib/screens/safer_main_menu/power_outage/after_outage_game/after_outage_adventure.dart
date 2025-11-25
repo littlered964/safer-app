@@ -253,12 +253,13 @@ Good luck — stay safe!
     final pos = Offset(p.x, p.y);
 
     if (startRect.contains(pos)) {
-      (gameRef).lockInput(false); // unlock controls
-      removeFromParent();                               // close overlay
+      (gameRef).lockInput(false);        // unlock controls
+      (gameRef).showCharacterSelectDialog();
+      removeFromParent();                // close how-to overlay
       return;
     }
     if (exitRect.contains(pos)) {
-      (gameRef).onExitToMenu?.call(); // back to Power Outage page
+      (gameRef).onExitToMenu?.call();
       return;
     }
   }
@@ -331,7 +332,8 @@ class SaferAdventureGame extends FlameGame {
     _bumpTimer = _bumpHoldSeconds;
   }
 
-
+  // Which avatar the player picked in the character-select dialog
+  String selectedAvatar = 'Bradley';
   
   // Living room broken glass state & guard 
   bool _livingGlassPresent = true;   // start broken by default
@@ -357,7 +359,7 @@ class SaferAdventureGame extends FlameGame {
   List<Rect> get killZones => _killZones;
 
   // toggleable debug outlines
-  bool debugZones = true; // turn off for release
+  bool debugZones = false; // turn off for release
 
 
   // Checklist & overlay
@@ -1445,6 +1447,12 @@ class SaferAdventureGame extends FlameGame {
     return result ?? false;
   }
 
+  // Character select overlay shown after "How to Play" and before the game starts
+  Future<void> showCharacterSelectDialog() async {
+    add(CharacterSelectDialog());
+  }
+
+
   Future<void> _playSfx(String filename, {double volume = 0.9}) async {
     if (_muted) return;
     try {
@@ -1615,107 +1623,241 @@ class SaferAdventureGame extends FlameGame {
 
 // Components
 
+enum PlayerAvatar { bradley, hannah }
 enum _Facing { up, left, down, right }
 
 class Player extends SpriteAnimationGroupComponent<_Facing>
     with HasGameRef<SaferAdventureGame> {
   static const double speed = 140;
-  static const double _tile = 32;
 
   Vector2 _dir = Vector2.zero();
 
-  late final SpriteAnimation _idleUp;
-  late final SpriteAnimation _idleLeft;
-  late final SpriteAnimation _idleDown;
-  late final SpriteAnimation _idleRight;
+  // Active maps (current avatar)
+  late Map<_Facing, SpriteAnimation> _idleMap;
+  late Map<_Facing, SpriteAnimation> _walkMap;
 
-  late final SpriteAnimation _walkUp;
-  late final SpriteAnimation _walkLeft;
-  late final SpriteAnimation _walkDown;
-  late final SpriteAnimation _walkRight;
-
-  late final Map<_Facing, SpriteAnimation> _idleMap;
-  late final Map<_Facing, SpriteAnimation> _walkMap;
+  // Per-avatar animation maps
+  late final Map<_Facing, SpriteAnimation> _idleBradley;
+  late final Map<_Facing, SpriteAnimation> _walkBradley;
+  late final Map<_Facing, SpriteAnimation> _idleHannah;
+  late final Map<_Facing, SpriteAnimation> _walkHannah;
 
   bool _fallback = false;
+  PlayerAvatar _avatar = PlayerAvatar.hannah; // default for now
 
-  Player() : super(priority: 50, anchor: Anchor.center, size: Vector2(28, 28));
+  // Base size used for both avatars
+  static const double _baseSize = 32.0;
+
+  // Per-avatar visual scale (Bradley = normal, Hannah slightly bigger)
+  static const double _bradScale   = 1.0;
+  static const double _hannahScale = 1.20;
+  
+  Player()
+      : super(
+          priority: 50,
+          anchor: Anchor.center,
+          size: Vector2(_baseSize, _baseSize),
+        );
+
 
   set dir(Vector2 v) => _dir = v;
 
-  static const String _assetKey = 'assets/images/sprites/main_guy_3x4_32.png';
+  // Asset keys for both sprites
+  static const String _assetBradley = 'assets/images/sprites/main_guy_3x4_32.png';
+  static const String _assetHannah  = 'assets/images/sprites/main_girl_4x8_64.png';
 
-  Future<ui.Image?> _tryFlameLoadExact() async {
+  Future<ui.Image?> _loadSprite(String key) async {
     try {
-      debugPrint('[Player] Flame load: $_assetKey');
-      return await gameRef.images.load(_assetKey);
+      debugPrint('[Player] Flame load: $key');
+      return await gameRef.images.load(key);
     } catch (e) {
-      debugPrint('[Player] Flame load failed: $e');
-      return null;
+      debugPrint('[Player] Flame load failed for $key: $e');
+      // Fallback: try via rootBundle / AssetManifest
+      try {
+        final manifestJson = await rootBundle.loadString('AssetManifest.json');
+        final Map<String, dynamic> manifest = convert.json.decode(manifestJson);
+        if (!manifest.containsKey(key)) {
+          debugPrint('[Player] Manifest does not list $key');
+          return null;
+        }
+        final data = await rootBundle.load(key);
+        final bytes = data.buffer.asUint8List();
+        final codec = await ui.instantiateImageCodec(bytes);
+        final frame = await codec.getNextFrame();
+        debugPrint('[Player] Loaded via rootBundle: $key');
+        return frame.image;
+      } catch (e2) {
+        debugPrint('[Player] Manifest/direct load failed for $key: $e2');
+        return null;
+      }
     }
   }
 
-  Future<ui.Image?> _tryManifestDirect() async {
-    try {
-      final manifestJson = await rootBundle.loadString('AssetManifest.json');
-      final Map<String, dynamic> manifest = convert.json.decode(manifestJson);
-      if (!manifest.containsKey(_assetKey)) {
-        debugPrint('[Player] Manifest does not list $_assetKey');
-        return null;
-      }
-      final data = await rootBundle.load(_assetKey);
-      final bytes = data.buffer.asUint8List();
-      final codec = await ui.instantiateImageCodec(bytes);
-      final frame = await codec.getNextFrame();
-      debugPrint('[Player] Loaded via rootBundle: $_assetKey');
-      return frame.image;
-    } catch (e) {
-      debugPrint('[Player] Manifest/direct load failed: $e');
-      return null;
+  void _buildBradley(ui.Image image) {
+    // Bradley: 4 rows x 3 columns, 32x32 tiles
+    const double tile = 32;
+    final sheet = SpriteSheet(image: image, srcSize: Vector2(tile, tile));
+    const step = 0.12;
+
+    final walkDown  = sheet.createAnimation(row: 0, from: 0, to: 2, stepTime: step);
+    final walkRight = sheet.createAnimation(row: 1, from: 0, to: 2, stepTime: step);
+    final walkUp    = sheet.createAnimation(row: 2, from: 0, to: 2, stepTime: step);
+    final walkLeft  = sheet.createAnimation(row: 3, from: 0, to: 2, stepTime: step);
+
+    final idleDown  = SpriteAnimation.spriteList(
+      [sheet.getSprite(0, 1)],
+      stepTime: 1,
+    );
+    final idleRight = SpriteAnimation.spriteList(
+      [sheet.getSprite(1, 1)],
+      stepTime: 1,
+    );
+    final idleUp    = SpriteAnimation.spriteList(
+      [sheet.getSprite(2, 1)],
+      stepTime: 1,
+    );
+    final idleLeft  = SpriteAnimation.spriteList(
+      [sheet.getSprite(3, 1)],
+      stepTime: 1,
+    );
+
+    _idleBradley = {
+      _Facing.up: idleUp,
+      _Facing.left: idleLeft,
+      _Facing.down: idleDown,
+      _Facing.right: idleRight,
+    };
+    _walkBradley = {
+      _Facing.up: walkUp,
+      _Facing.left: walkLeft,
+      _Facing.down: walkDown,
+      _Facing.right: walkRight,
+    };
+  }
+
+
+  void _buildHannah(ui.Image image) {
+    // Hannah: 4 rows x 8 columns, girl is on right half (cols 4–6)
+    const double tile = 64;
+    final sheet = SpriteSheet(image: image, srcSize: Vector2(tile, tile));
+    const step = 0.12;
+
+    const int girlColStart = 4;
+    const int girlColMid   = girlColStart + 1;
+    const int girlColEnd   = girlColStart + 2;
+
+    // Row mapping:
+    // 0: facing forward (down)
+    // 1: facing left
+    // 2: facing right
+    // 3: facing back (up)
+
+    final walkDown  = sheet.createAnimation(
+      row: 0,
+      from: girlColStart,
+      to: girlColEnd,
+      stepTime: step,
+    );
+    final walkLeft  = sheet.createAnimation(
+      row: 1,
+      from: girlColStart,
+      to: girlColEnd,
+      stepTime: step,
+    );
+    final walkRight = sheet.createAnimation(
+      row: 2,
+      from: girlColStart,
+      to: girlColEnd,
+      stepTime: step,
+    );
+    final walkUp    = sheet.createAnimation(
+      row: 3,
+      from: girlColStart,
+      to: girlColEnd,
+      stepTime: step,
+    );
+
+    final idleDown  = SpriteAnimation.spriteList(
+      [sheet.getSprite(0, girlColMid)],
+      stepTime: 1,
+    );
+    // use a non-walking frame for horizontal idle
+    final idleLeft  = SpriteAnimation.spriteList(
+      [sheet.getSprite(1, girlColStart)],
+      stepTime: 1,
+    );
+    final idleRight = SpriteAnimation.spriteList(
+      [sheet.getSprite(2, girlColStart)],
+      stepTime: 1,
+    );
+    final idleUp    = SpriteAnimation.spriteList(
+      [sheet.getSprite(3, girlColMid)],
+      stepTime: 1,
+    );
+
+
+    _idleHannah = {
+      _Facing.up: idleUp,
+      _Facing.left: idleLeft,
+      _Facing.down: idleDown,
+      _Facing.right: idleRight,
+    };
+    _walkHannah = {
+      _Facing.up: walkUp,
+      _Facing.left: walkLeft,
+      _Facing.down: walkDown,
+      _Facing.right: walkRight,
+    };
+  }
+
+  void _applyAvatar(PlayerAvatar avatar) {
+    _avatar = avatar;
+
+    switch (avatar) {
+      case PlayerAvatar.bradley:
+        _idleMap = _idleBradley;
+        _walkMap = _walkBradley;
+        break;
+      case PlayerAvatar.hannah:
+        _idleMap = _idleHannah;
+        _walkMap = _walkHannah;
+        break;
     }
+
+    // Apply per-avatar size
+    final double scale =
+        (avatar == PlayerAvatar.bradley) ? _bradScale : _hannahScale;
+    final double s = _baseSize * scale;
+    size.setValues(s, s);
+
+    animations = _idleMap;
+    current = _Facing.down;
+  }
+
+  // Public API so overlays can switch character
+  void setAvatar(PlayerAvatar avatar) {
+    if (_fallback) return;
+    _applyAvatar(avatar);
   }
 
   @override
   Future<void> onLoad() async {
     try {
-      ui.Image? image = await _tryFlameLoadExact();
-      image ??= await _tryManifestDirect();
+      final bradImg = await _loadSprite(_assetBradley);
+      final hanImg  = await _loadSprite(_assetHannah);
 
-      if (image == null) {
-        throw Exception('Sprite not found in bundle: $_assetKey');
+      if (bradImg == null || hanImg == null) {
+        throw Exception('One or both player sprite sheets not found.');
       }
 
-      final sheet = SpriteSheet(image: image, srcSize: Vector2(_tile, _tile));
-      const step = 0.12;
+      _buildBradley(bradImg);
+      _buildHannah(hanImg);
 
-      _walkUp    = sheet.createAnimation(row: 0, from: 0, to: 2, stepTime: step);
-      _walkLeft  = sheet.createAnimation(row: 3, from: 0, to: 2, stepTime: step);
-      _walkDown  = sheet.createAnimation(row: 2, from: 0, to: 2, stepTime: step);
-      _walkRight = sheet.createAnimation(row: 1, from: 0, to: 2, stepTime: step);
-
-      _idleUp    = SpriteAnimation.spriteList([sheet.getSprite(0, 1)], stepTime: 1);
-      _idleLeft  = SpriteAnimation.spriteList([sheet.getSprite(3, 1)], stepTime: 1);
-      _idleDown  = SpriteAnimation.spriteList([sheet.getSprite(2, 1)], stepTime: 1);
-      _idleRight = SpriteAnimation.spriteList([sheet.getSprite(1, 1)], stepTime: 1);
-
-      _idleMap = {
-        _Facing.up: _idleUp,
-        _Facing.left: _idleLeft,
-        _Facing.down: _idleDown,
-        _Facing.right: _idleRight,
-      };
-      _walkMap = {
-        _Facing.up: _walkUp,
-        _Facing.left: _walkLeft,
-        _Facing.down: _walkDown,
-        _Facing.right: _walkRight,
-      };
-
-      animations = _idleMap;
-      current = _Facing.down;
+      // Start as Hannah by default; dialog will call setAvatar(...)
+      _applyAvatar(_avatar);
 
       paint.filterQuality = FilterQuality.none;
-      debugPrint('[Player] Sprite sheet initialized.');
+      debugPrint('[Player] Both avatars initialized.');
     } catch (e) {
       _fallback = true;
       animations = null;
@@ -1735,14 +1877,19 @@ class Player extends SpriteAnimationGroupComponent<_Facing>
       position += v * speed * dt;
 
       if (!_fallback && animations != null) {
+        // vertical vs horizontal
         if (v.y.abs() >= v.x.abs()) {
-          current = (v.y > 0) ? _Facing.up : _Facing.down;
+          // v.y > 0 → moving down (front)  | v.y < 0 → moving up (back)
+          current = (v.y > 0) ? _Facing.down : _Facing.up;
         } else {
           current = (v.x > 0) ? _Facing.right : _Facing.left;
         }
-        if (!identical(animations, _walkMap)) animations = _walkMap;
+        if (!identical(animations, _walkMap)) {
+          animations = _walkMap;
+        }
       }
     } else {
+      // Not moving → idle animations, keep direction
       if (!_fallback && animations != null && !identical(animations, _idleMap)) {
         animations = _idleMap;
       }
@@ -3598,6 +3745,291 @@ class NeighborDialog extends PositionComponent
   @override
   void onRemove() {
     // make sure input is unlocked when this goes away
+    gameRef.lockInput(false);
+    super.onRemove();
+  }
+}
+
+class CharacterSelectDialog extends PositionComponent
+    with HasGameRef<SaferAdventureGame>, TapCallbacks {
+  CharacterSelectDialog() {
+    priority = 2650; // above HUD, similar to NeighborDialog
+  }
+
+  Sprite? _bradPreview;
+  Sprite? _hannahPreview;
+  bool _spritesReady = false;
+
+  static const String _assetBradley = 'assets/images/sprites/main_guy_3x4_32.png';
+  static const String _assetHannah  = 'assets/images/sprites/main_girl_4x8_64.png';
+
+  @override
+  Future<void> onLoad() async {
+    anchor = Anchor.topLeft;
+    position = Vector2.zero();
+    size = gameRef.size;
+    gameRef.lockInput(true);
+
+    // Load preview sprites (idle, facing forward) for both characters
+    try {
+      final bradImg = await gameRef.images.load(_assetBradley);
+      final hanImg  = await gameRef.images.load(_assetHannah);
+
+      // Bradley: 4x3, tile 32x32 — row 0 col 1 = idle facing down
+      const double bradTile = 32;
+      final bradSheet = SpriteSheet(
+        image: bradImg,
+        srcSize: Vector2(bradTile, bradTile),
+      );
+      _bradPreview = bradSheet.getSprite(0, 1);
+
+      // Hannah: row 0, girl in columns 4–6, idle = middle (5)
+      const double hanTile = 64;
+      final hanSheet = SpriteSheet(
+        image: hanImg,
+        srcSize: Vector2(hanTile, hanTile),
+      );
+      const int girlColMid = 5;
+      _hannahPreview = hanSheet.getSprite(0, girlColMid);
+
+      _spritesReady = true;
+    } catch (_) {
+      _spritesReady = false;
+    }
+  }
+
+  @override
+  void onGameResize(Vector2 canvasSize) {
+    super.onGameResize(canvasSize);
+    size = canvasSize;
+    position = Vector2.zero();
+  }
+
+  void _select(PlayerAvatar avatar) {
+    // Find the Player in the game tree and switch avatar
+    final players = gameRef.children.whereType<Player>();
+    if (players.isNotEmpty) {
+      players.first.setAvatar(avatar);
+    }
+    gameRef.lockInput(false);
+    removeFromParent();
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final s = gameRef.size;
+
+    // Dim background
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, s.x, s.y),
+      Paint()..color = Colors.black.withOpacity(0.55),
+    );
+
+    // Dialog bubble (taller, darker)
+    const double pad = 16.0;
+    const double bubbleH = 220.0; // ⬅️ taller than before
+    final Rect bubbleRect = Rect.fromLTWH(
+      pad,
+      s.y - bubbleH - pad,
+      s.x - pad * 2,
+      bubbleH,
+    );
+    final RRect bubbleRRect =
+        RRect.fromRectAndRadius(bubbleRect, const Radius.circular(14));
+
+    // Dark panel similar to how-to style
+    canvas.drawRRect(
+      bubbleRRect,
+      Paint()..color = const Color(0xFF101621),
+    );
+
+    // Title
+    final titleTp = TextPainter(
+      text: const TextSpan(
+        text: 'Choose Your Character',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: bubbleRect.width - 24);
+    titleTp.paint(
+      canvas,
+      Offset(bubbleRect.left + 12, bubbleRect.top + 12),
+    );
+
+    // Description
+    final bodyTp = TextPainter(
+      text: const TextSpan(
+        text: 'Who would you like to play as?\n',
+        style: TextStyle(
+          color: Colors.white70,
+          fontSize: 13,
+          height: 1.3,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: bubbleRect.width - 24);
+    bodyTp.paint(
+      canvas,
+      Offset(bubbleRect.left + 12, bubbleRect.top + 40),
+    );
+
+    // sprites preview
+    if (_spritesReady) {
+      const double previewSize = 54.0;
+
+      // push previews down so they don't cover title/description
+      final double previewTop = bubbleRect.top + 100;
+
+      // horizontal centers
+      final double bradCx = bubbleRect.left + bubbleRect.width * 0.28;
+      final double hanCx  = bubbleRect.left + bubbleRect.width * 0.72;
+
+      // Bradley preview
+      if (_bradPreview != null) {
+        _bradPreview!.render(
+          canvas,
+          position: Vector2(
+            bradCx - previewSize / 2,
+            previewTop,
+          ),
+          size: Vector2.all(previewSize),
+        );
+      }
+
+      // Hannah preview
+      if (_hannahPreview != null) {
+        _hannahPreview!.render(
+          canvas,
+          position: Vector2(
+            hanCx - previewSize / 2,
+            previewTop,
+          ),
+          size: Vector2.all(previewSize),
+        );
+      }
+    }
+
+    // === BUTTONS ===
+    const double btnW = 110;
+    const double btnH = 34;
+    const double gap = 16;
+
+    // move buttons down a bit
+    final double btnY = bubbleRect.bottom - btnH - 8;
+    final double cx = bubbleRect.center.dx;
+
+    final Rect bradRect = Rect.fromLTWH(
+      cx - btnW - gap / 2,
+      btnY,
+      btnW,
+      btnH,
+    );
+    final Rect hannahRect = Rect.fromLTWH(
+      cx + gap / 2,
+      btnY,
+      btnW,
+      btnH,
+    );
+
+    // Bradley button (blue)
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bradRect, const Radius.circular(8)),
+      Paint()..color = const Color(0xFF1976D2),
+    );
+    final bradTp = TextPainter(
+      text: const TextSpan(
+        text: 'Bradley',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    bradTp.paint(
+      canvas,
+      Offset(
+        bradRect.center.dx - bradTp.width / 2,
+        bradRect.center.dy - bradTp.height / 2,
+      ),
+    );
+
+    // Hannah button (purple)
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(hannahRect, const Radius.circular(8)),
+      Paint()..color = const Color(0xFF8E24AA),
+    );
+    final hanTp = TextPainter(
+      text: const TextSpan(
+        text: 'Hannah',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    hanTp.paint(
+      canvas,
+      Offset(
+        hannahRect.center.dx - hanTp.width / 2,
+        hannahRect.center.dy - hanTp.height / 2,
+      ),
+    );
+  }
+
+  @override
+  void onTapUp(TapUpEvent event) {
+    event.handled = true;
+    final s = gameRef.size;
+
+    const double pad = 16.0;
+    const double bubbleH = 220.0;
+    final Rect bubbleRect = Rect.fromLTWH(
+      pad,
+      s.y - bubbleH - pad,
+      s.x - pad * 2,
+      bubbleH,
+    );
+
+    const double btnW = 110;
+    const double btnH = 34;
+    const double gap = 16;
+    final double btnY = bubbleRect.bottom - btnH - 8;
+    final double cx = bubbleRect.center.dx;
+
+    final Rect bradRect = Rect.fromLTWH(
+      cx - btnW - gap / 2,
+      btnY,
+      btnW,
+      btnH,
+    );
+    final Rect hannahRect = Rect.fromLTWH(
+      cx + gap / 2,
+      btnY,
+      btnW,
+      btnH,
+    );
+
+    final Offset pos = event.localPosition.toOffset();
+
+    if (bradRect.contains(pos)) {
+      _select(PlayerAvatar.bradley);
+    } else if (hannahRect.contains(pos)) {
+      _select(PlayerAvatar.hannah);
+    } else if (bubbleRect.contains(pos)) {
+      // tap inside bubble but not a button -> ignore
+    }
+  }
+
+  @override
+  void onRemove() {
     gameRef.lockInput(false);
     super.onRemove();
   }
