@@ -473,7 +473,7 @@ class SaferAdventureGame extends FlameGame {
   Map<String, Rect> _doorRectsFor(Room room) {
     Rect bottomDoor()   => Rect.fromLTWH(size.x / 2 - 24, size.y - 50, 48, 30);
     Rect topDoor()      => Rect.fromLTWH(size.x / 2 - 20, 20,               40, 28);
-    Rect rightDoor()    => Rect.fromLTWH(size.x - 60,    size.y / 2 + 4,    44, 40);
+    Rect rightDoor()    => Rect.fromLTWH(size.x - 60,    size.y / 2 + 4,    42, 70);
     Rect leftDoor()     => Rect.fromLTWH(16,             size.y / 2 + 4,    40, 40);
     Rect topRightDoor() => Rect.fromLTWH(size.x - 80,    52,                60, 28);
 
@@ -693,7 +693,7 @@ class SaferAdventureGame extends FlameGame {
       ));
 
       add(Doorway(
-        rect: livingDoors['toFrontLawn']!,
+        rect: Rect.fromLTWH(size.x / 2 + 66, 18, 58, 32),
         label: '↑ Front Lawn',
         onEnter: () async {
           HapticFeedback.selectionClick();
@@ -864,14 +864,14 @@ class SaferAdventureGame extends FlameGame {
 
         _sweepDoorBottom = Doorway(
           rect: bottomBar,
-          label: 'Sweep Up Glass',
+          label: '',
           onEnter: () async { HapticFeedback.selectionClick(); await _doSweep(); },
         )..priority = 6;
         add(_sweepDoorBottom!);
 
         _sweepDoorRight = Doorway(
           rect: rightBar,
-          label: 'Sweep Up Glass',
+          label: '',
           onEnter: () async { HapticFeedback.selectionClick(); await _doSweep(); },
         )..priority = 6;
         add(_sweepDoorRight!);
@@ -2144,11 +2144,9 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     }
 
     // Doors
-    final topDoorRect = Rect.fromLTWH(size.x / 2 - 20, 20, 40, 28);
-    final rightDoorRect =
-        Rect.fromLTWH(size.x - 60, size.y / 2 + 4, 44, 40);
-    final bottomDoorRect =
-        Rect.fromLTWH(size.x / 2 - 24, size.y - 50, 48, 30);
+    final topDoorRect = Rect.fromLTWH(size.x / 2 + 66, 18, 58, 32);
+    final rightDoorRect = Rect.fromLTWH(size.x - 60, size.y / 2 + 4, 42, 70);
+    final bottomDoorRect = Rect.fromLTWH(size.x / 2 - 24, size.y - 50, 48, 30);
     _drawFrontDoor(canvas, topDoorRect);
     _drawInteriorDoorway(canvas, rightDoorRect);
     _drawStairsDown(canvas, bottomDoorRect);
@@ -2885,10 +2883,10 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     }
 
     // Door to Living
-    final doorRect = Rect.fromLTWH(16, size.y / 2 - 20, 40, 40);
+    final doorRect = Rect.fromLTWH(16, size.y / 2 - 8, 40, 40);
     canvas.drawRRect(
       RRect.fromRectAndRadius(doorRect, const Radius.circular(10)),
-      Paint()..color = Colors.white.withOpacity(0.14),
+      Paint()..color = Colors.white.withOpacity(0.26),
     );
 
     // collision solids
@@ -3154,7 +3152,7 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     }
 
     // Top door
-    final topDoorRect = Rect.fromLTWH(size.x / 2 - 20, 20, 40, 28);
+    final topDoorRect = Rect.fromLTWH(size.x / 2 + 20, 20, 40, 28);
     _drawStairsUp(canvas, topDoorRect);
 
     // Flooded water overlay / kill zone
@@ -3439,24 +3437,28 @@ class Doorway extends PositionComponent with HasGameRef<SaferAdventureGame> {
   }
 
   @override
-    void render(Canvas canvas) {
-      // Background color
-      final bgColor = color ?? Colors.white.withOpacity(0.10);
-      final p = Paint()..color = bgColor;
+  void render(Canvas canvas) {
+    // Background color
+    final bgColor = color ?? Colors.white.withOpacity(0.10);
+    final p = Paint()..color = bgColor;
 
-      final r = Rect.fromLTWH(0, 0, size.x, size.y);
-      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(6)), p);
+    final r = Rect.fromLTWH(0, 0, size.x, size.y);
+    canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(6)), p);
 
-      // Text color
-      final labelColor = textColor ?? Colors.white60;
+    final labelColor = textColor ?? Colors.white.withOpacity(0.97);
 
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: TextStyle(color: labelColor, fontSize: 10),
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          color: labelColor,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: size.x + 80);
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: size.x + 80);
+
     tp.paint(canvas, const Offset(-18, -14));
   }
 
@@ -3528,7 +3530,7 @@ class Hotspot extends PositionComponent with HasGameRef<SaferAdventureGame> {
       ),
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: radius * 2 + 80);
-    tp.paint(canvas, Offset(-tp.width / 2, -radius - tp.height - 2));
+    tp.paint(canvas, Offset(-tp.width / 2, radius + 6));
   }
 
   @override
