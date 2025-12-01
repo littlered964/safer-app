@@ -3559,7 +3559,7 @@ class HudToast extends Component with HasGameRef<SaferAdventureGame> {
   String? _text;
   double _timer = 0;
 
-  void show(String text, {double seconds = 1.1}) {
+  void show(String text, {double seconds = 2.6}) {
     _text = text;
     _timer = seconds;
   }
@@ -3575,6 +3575,13 @@ class HudToast extends Component with HasGameRef<SaferAdventureGame> {
   void render(Canvas canvas) {
     if (_timer <= 0 || _text == null) return;
 
+    const double fadeWindow = 1.2;
+    double alpha = 1.0;
+    if (_timer < fadeWindow) {
+      alpha = (_timer / fadeWindow).clamp(0.0, 1.0);
+    }
+    if (alpha <= 0) return;
+
     final w = gameRef.size.x;
     const pad = 12.0;
     final boxW = (w - 40).clamp(220, 560).toDouble();
@@ -3583,7 +3590,7 @@ class HudToast extends Component with HasGameRef<SaferAdventureGame> {
     final left = (w - boxW) / 2.0;
     const top = 24.0;
 
-    final paint = Paint()..color = Colors.black.withOpacity(0.72);
+    final paint = Paint()..color = Colors.black.withOpacity(0.72 * alpha);
     final r = RRect.fromRectAndRadius(
       Rect.fromLTWH(left, top, boxW, boxH),
       const Radius.circular(10),
@@ -3591,11 +3598,24 @@ class HudToast extends Component with HasGameRef<SaferAdventureGame> {
     canvas.drawRRect(r, paint);
 
     final tp = TextPainter(
-      text: TextSpan(text: _text!, style: const TextStyle(color: Colors.white, fontSize: 14)),
+      text: TextSpan(
+        text: _text!,
+        style: TextStyle(
+          color: Colors.white.withOpacity(alpha),
+          fontSize: 14,
+        ),
+      ),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
     )..layout(maxWidth: boxW - pad * 2);
-    tp.paint(canvas, Offset(left + (boxW - tp.width) / 2, top + (boxH - tp.height) / 2));
+
+    tp.paint(
+      canvas,
+      Offset(
+        left + (boxW - tp.width) / 2,
+        top + (boxH - tp.height) / 2,
+      ),
+    );
   }
 }
 

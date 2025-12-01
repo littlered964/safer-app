@@ -41,7 +41,7 @@ class _AfterOutageGamePageState extends State<AfterOutageGamePage> {
           ),
           // D-Pad: taller + semi-transparent + bigger center dead-zone
           Container(
-            height: 168,
+            height: 160,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface.withOpacity(0.86),
               border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
@@ -55,7 +55,7 @@ class _AfterOutageGamePageState extends State<AfterOutageGamePage> {
                   ValueListenableBuilder<String>(
                     valueListenable: _game.roomLabel,
                     builder: (context, text, _) {
-                      const double sideReserve = 110; // was 140; smaller so D-pad gets more room
+                      const double sideReserve = 140;
                       return SizedBox(
                         width: sideReserve,
                         child: Align(
@@ -69,9 +69,10 @@ class _AfterOutageGamePageState extends State<AfterOutageGamePage> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontSize: 14,
+                                      fontSize: 15,
+                                      letterSpacing: 0.2,
                                       color: Theme.of(context).colorScheme.onSurface.withOpacity(0.98),
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w800,
                                     ),
                               ),
                               ValueListenableBuilder<String>(
@@ -79,16 +80,29 @@ class _AfterOutageGamePageState extends State<AfterOutageGamePage> {
                                 builder: (context, bump, _) => AnimatedOpacity(
                                   duration: const Duration(milliseconds: 120),
                                   opacity: bump.isEmpty ? 0.0 : 1.0,
-                                  child: Text(
-                                    bump,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          fontSize: 13,
-                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.95),
-                                          fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                                  child: bump.isEmpty
+                                      ? const SizedBox.shrink()
+                                      : Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          margin: const EdgeInsets.only(top: 4),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary
+                                                .withOpacity(0.14),
+                                            borderRadius: BorderRadius.circular(999),
+                                          ),
+                                          child: Text(
+                                            bump,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                  fontSize: 13,
+                                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.98),
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
+                                        ),
                                 ),
                               ),
                             ],
@@ -97,11 +111,10 @@ class _AfterOutageGamePageState extends State<AfterOutageGamePage> {
                       );
                     },
                   ),
-                  // Center: HARD guarantee a square for the D-pad so arrows fit
                   Expanded(
                     child: Center(
                       child: SizedBox.square(
-                        dimension: 168, // same as container height so everything fits
+                        dimension: 160, // same as container height so everything fits
                         child: _DPad(
                           onDir: (dx, dy) => _game.setMobileDir(dx, dy),
                           onStop: () => _game.setMobileDir(0, 0),
@@ -109,8 +122,7 @@ class _AfterOutageGamePageState extends State<AfterOutageGamePage> {
                       ),
                     ),
                   ),
-
-                  // Right-side: checklist toggle button (keeps total width symmetric with left)
+                  // checklist toggle button (keeps total width symmetric with left)
                   SizedBox(
                     width: 110,
                     child: Center(
@@ -188,7 +200,7 @@ class _DPad extends StatelessWidget {
   Widget build(BuildContext context) {
     final btnStyle = ElevatedButton.styleFrom(
       shape: const CircleBorder(),
-      minimumSize: const Size(76, 76), // bigger buttons
+      minimumSize: const Size(70, 70),
       padding: EdgeInsets.zero,
       elevation: 2,
     );
@@ -209,7 +221,7 @@ class _DPad extends StatelessWidget {
     // Large center stop button acts as a "dead zone"
     final stopButton = ElevatedButton(
       style: btnStyle.copyWith(
-        minimumSize: const WidgetStatePropertyAll(Size(70, 70)), // larger dead zone
+        minimumSize: const WidgetStatePropertyAll(Size(64, 64)),
         backgroundColor: WidgetStatePropertyAll(
           Theme.of(context).colorScheme.secondaryContainer,
         ),
