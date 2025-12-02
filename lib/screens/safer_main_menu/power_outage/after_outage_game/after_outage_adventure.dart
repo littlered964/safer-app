@@ -359,7 +359,7 @@ class SaferAdventureGame extends FlameGame {
   List<Rect> get killZones => _killZones;
 
   // toggleable debug outlines
-  bool debugZones = true; // turn off for release
+  bool debugZones = false; // turn off for release
 
 
   // Checklist & overlay
@@ -472,10 +472,10 @@ class SaferAdventureGame extends FlameGame {
   // Door rectangles per room so we can spawn right at doors
   Map<String, Rect> _doorRectsFor(Room room) {
     Rect bottomDoor()   => Rect.fromLTWH(size.x / 2 - 24, size.y - 50, 48, 30);
-    Rect topDoor()      => Rect.fromLTWH(size.x / 2 - 20, 20,               40, 28);
-    Rect rightDoor()    => Rect.fromLTWH(size.x - 60,    size.y / 2 + 4,    42, 70);
-    Rect leftDoor()     => Rect.fromLTWH(16,             size.y / 2 + 4,    40, 40);
-    Rect topRightDoor() => Rect.fromLTWH(size.x - 80,    52,                60, 28);
+    Rect topDoor()      => Rect.fromLTWH(size.x / 2 - 20, 20, 40, 28);
+    Rect rightDoor()    => Rect.fromLTWH(size.x - 60,    size.y / 2 + 4, 42, 70);
+    Rect leftDoor()     => Rect.fromLTWH(16, size.y / 2 + 4, 40, 40);
+    Rect topRightDoor() => Rect.fromLTWH(size.x - 80, 60, 60, 24);
 
     switch (room) {
       case Room.living:
@@ -488,23 +488,23 @@ class SaferAdventureGame extends FlameGame {
         return {'toLiving': topDoor()};
       case Room.frontLawn:
         return {'toLiving': Rect.fromLTWH(
-          size.x / 2 - 24,  // wider door
-          size.y - 210,      // higher up
+          size.x / 2 - 24,
+          size.y - 210,
           48,
           30,
         ), 'toSidewalk': topRightDoor()};
       case Room.sidewalk:
-        // custom door positions (moved up to match new visuals)
+        // custom door positions 
         return {
           'toFrontLawn': Rect.fromLTWH(
             16,
-            size.y * 0.30, // was size.y / 2 - 20
+            size.y * 0.33,
             40,
             40,
           ),
           'toNeighbor': Rect.fromLTWH(
             size.x - 56,
-            size.y * 0.30, // was size.y / 2 - 20
+            size.y * 0.33,
             40,
             40,
           ),
@@ -880,7 +880,7 @@ class SaferAdventureGame extends FlameGame {
     } else if (room == Room.basement) {
       add(Doorway(
         rect: basementDoors['toLiving']!,
-        label: '↑ Living (Stairs)',
+        label: '↑ Living Room',
         onEnter: () async {
           HapticFeedback.selectionClick();
           await _goTo(Room.living, spawnFrom: 'toBasement');
@@ -889,7 +889,9 @@ class SaferAdventureGame extends FlameGame {
     } else if (room == Room.frontLawn) {
       add(Doorway(
         rect: lawnDoors['toLiving']!,
-        label: '↓ Living',
+        label: '↓ Living Room',
+        color: Colors.transparent,
+        textColor: Colors.black.withValues(alpha: 0.82),
         onEnter: () async {
           HapticFeedback.selectionClick();
           await _goTo(Room.living, spawnFrom: 'toFrontLawn');
@@ -898,6 +900,8 @@ class SaferAdventureGame extends FlameGame {
       add(Doorway(
         rect: lawnDoors['toSidewalk']!,
         label: '↗ Sidewalk',
+        color: Colors.black.withOpacity(0.35),
+        textColor: Colors.white,
         onEnter: () async {
           HapticFeedback.selectionClick();
 
@@ -915,10 +919,9 @@ class SaferAdventureGame extends FlameGame {
         },
       ));
 
-
       // front yard video interaction
       final Rect recordRect = Rect.fromCenter(
-        center: Offset(size.x * 0.76, size.y * 0.64),
+        center: Offset(size.x * 0.76, size.y * 0.58),
         width: 64,
         height: 36,
       );
@@ -962,35 +965,39 @@ class SaferAdventureGame extends FlameGame {
       }
 
       } else if (room == Room.sidewalk) {
-      // Doors to other rooms
-      add(Doorway(
-        rect: sidewalkDoors['toFrontLawn']!,
-        label: '← Front Lawn',
-        onEnter: () async {
-          HapticFeedback.selectionClick();
-          await _goTo(Room.frontLawn, spawnFrom: 'toSidewalk');
-        },
-      ));
-      add(Doorway(
-        rect: sidewalkDoors['toNeighbor']!,
-        label: '→ Neighbor',
-        onEnter: () async {
-          HapticFeedback.selectionClick();
+        // Doors to other rooms
+        add(Doorway(
+          rect: sidewalkDoors['toFrontLawn']!,
+          label: '← Front Lawn',
+          color: Colors.black.withOpacity(0.35),
+          textColor: Colors.black,
+          onEnter: () async {
+            HapticFeedback.selectionClick();
+            await _goTo(Room.frontLawn, spawnFrom: 'toSidewalk');
+          },
+        ));
 
-          if (!_canGoOutside) {
-            add(
-              NeighborDialog(
-                message: 'Take care of all the tasks inside your own home before checking on your neighbor.',
-                onComplete: () {},
-              ),
-            );
-            return;
-          }
+        add(Doorway(
+          rect: sidewalkDoors['toNeighbor']!,
+          label: '→ Neighbor',
+          color: Colors.black.withOpacity(0.35),
+          textColor: Colors.black,
+          onEnter: () async {
+            HapticFeedback.selectionClick();
 
-          await _goTo(Room.neighbor, spawnFrom: 'toSidewalk');
-        },
-      ));
+            if (!_canGoOutside) {
+              add(
+                NeighborDialog(
+                  message: 'Take care of all the tasks inside your own home before checking on your neighbor.',
+                  onComplete: () {},
+                ),
+              );
+              return;
+            }
 
+            await _goTo(Room.neighbor, spawnFrom: 'toSidewalk');
+          },
+        ));
 
       // sidewalk geometry for hotspots
       const double inset = 14.0;
@@ -1005,15 +1012,15 @@ class SaferAdventureGame extends FlameGame {
       final Rect pathRect   = Rect.fromLTWH(inner.left, streetRect.bottom, inner.width, pathH);
       final Rect grassRect  = Rect.fromLTWH(inner.left, pathRect.bottom, inner.width, grassH);
 
-      // Baseline Y for both hotspots (sitting on the sidewalk just above the grass)
-      final double hotspotY = grassRect.top - 26.0;
+      final double hydrantHotspotY = grassRect.top - 130.0; // higher
+      final double lineHotspotY    = grassRect.top - 26.0; // original
 
       // Hydrant hotspot
       const double hydrantHotW = 40.0;
       const double hydrantHotH = 30.0;
       final Offset hydrantCenter = Offset(
         pathRect.left + pathRect.width * 0.58,
-        hotspotY,
+        hydrantHotspotY,
       );
       final Rect hydrantHotRect = Rect.fromCenter(
         center: hydrantCenter,
@@ -1021,14 +1028,14 @@ class SaferAdventureGame extends FlameGame {
         height: hydrantHotH,
       );
 
-      // downed-line hotspot
+      // downed-line hotspot (stays where it was)
       const double powerHotW = 40.0;
       const double powerHotH = 30.0;
       const double powerGap  = 42.0;
 
       final Offset powerCenter = Offset(
         hydrantCenter.dx - (hydrantHotW / 2 + powerGap + powerHotW / 2),
-        hotspotY,
+        lineHotspotY,
       );
       final Rect powerHotRect = Rect.fromCenter(
         center: powerCenter,
@@ -2450,8 +2457,8 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     }
 
     // Door overlays
-    final trDoorRect = Rect.fromLTWH(size.x - 80, 52, 60, 28);
-    canvas.drawRRect(
+    final trDoorRect = Rect.fromLTWH(size.x - 80, 60, 60, 24);
+    canvas.drawRRect( 
       RRect.fromRectAndRadius(trDoorRect.inflate(2), const Radius.circular(6)),
       Paint()..color = Colors.white.withOpacity(0.12),
     );
@@ -2462,7 +2469,10 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(bottomDoorRect.deflate(2), const Radius.circular(5)),
-      Paint()..color = const Color(0xFF252D3A),
+      Paint()
+        ..color = const Color(0xFF252D3A).withValues(
+          alpha: 0.24,
+        ),
     );
 
     // Collision solids
@@ -2488,26 +2498,39 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     );
     namedSolids.add((rect: rightTreeRect, name: 'Tree'));
 
-    // Bottom bushes
+    // Bottom bushes + house front
     final double bushBandHeight = inner.height * 0.13;
-    final double bushTop        = inner.bottom - bushBandHeight;
-    final double gapHalfWidth   = inner.width * 0.09;
+    final double gapHalfWidth   = inner.width * 0.26; 
+    const double HOUSE_VERTICAL_OFFSET = -16.0;
+    final double bushTop    = inner.bottom - bushBandHeight - 88.0;
+    final double bushBottom = inner.bottom - 30.0;
 
+    // Left bushes
     final Rect leftBushes = Rect.fromLTRB(
       inner.left,
-      bushTop + 4,
+      bushTop,
       inner.center.dx - gapHalfWidth,
-      inner.bottom,
+      bushBottom,
     );
     namedSolids.add((rect: leftBushes, name: 'Bushes'));
 
+    // Right bushes
     final Rect rightBushes = Rect.fromLTRB(
       inner.center.dx + gapHalfWidth,
       bushTop,
       inner.right,
-      inner.bottom,
+      bushBottom,
     );
     namedSolids.add((rect: rightBushes, name: 'Bushes'));
+
+    // House
+    final Rect houseFront = Rect.fromLTRB(
+      leftBushes.right + 4.0,
+      bushTop + HOUSE_VERTICAL_OFFSET,      // move top upward
+      rightBushes.left - 4.0,
+      bushBottom + HOUSE_VERTICAL_OFFSET,   // move bottom upward too
+    );
+    namedSolids.add((rect: houseFront, name: 'House'));
 
     // Register so collisions + bump label work
     game.setNamedSolids(namedSolids);
@@ -2580,7 +2603,7 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
       // Position roughly matched to hotspot band
       final Offset hydrantCenter = Offset(
         pathRect.left + pathRect.width * 0.70,
-        grassRect.top - 28,
+        grassRect.top - 130,
       );
 
       final Paint hydrantPaint = Paint()..color = const Color(0xFFB71C1C);
@@ -2831,38 +2854,57 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
       Paint()..color = Colors.white.withOpacity(0.12),
     );
 
-    // bush dead zones
+    // Bottom bushes + house front
     final double bushBandHeight = inner.height * 0.13;
-    final double bushTop = inner.bottom - bushBandHeight - 72;
-    final double gapHalfWidth = inner.width * 0.09;
+    final double gapHalfWidth   = inner.width * 0.26; 
+    const double HOUSE_VERTICAL_OFFSET = -16.0;
 
+    final double bushTop    = inner.bottom - bushBandHeight - 88.0;
+    final double bushBottom = inner.bottom - 30.0;
+
+    // Left bushes
     final Rect leftBushes = Rect.fromLTRB(
       inner.left,
-      bushTop + 4,
+      bushTop,
       inner.center.dx - gapHalfWidth,
-      inner.bottom,
+      bushBottom,
     );
     namedSolids.add((rect: leftBushes, name: 'Bushes'));
 
+    // Right bushes
     final Rect rightBushes = Rect.fromLTRB(
       inner.center.dx + gapHalfWidth,
       bushTop,
       inner.right,
-      inner.bottom,
+      bushBottom,
     );
     namedSolids.add((rect: rightBushes, name: 'Bushes'));
 
-    // tree stump dead zone
-    final Rect stumpRect = Rect.fromCircle(
-      center: Offset(
-        inner.left + inner.width * 0.20,
-        inner.top + inner.height * 0.40,
-      ),
-      radius: inner.width * 0.08,
+    // House
+    final Rect houseFront = Rect.fromLTRB(
+      leftBushes.right + 4.0,
+      bushTop + HOUSE_VERTICAL_OFFSET,
+      rightBushes.left - 4.0,
+      bushBottom + HOUSE_VERTICAL_OFFSET,
     );
-    namedSolids.add((rect: stumpRect, name: 'Tree Stump'));
+    namedSolids.add((rect: houseFront, name: 'House'));
 
-    // Register collision solids (bushes + stump)
+    // tree log dead zone
+    final double logW = inner.width * 0.24;
+    final double logH = inner.height * 0.07;
+
+    final double logCx = inner.left + inner.width * 0.20; 
+    final double logCy = inner.top  + inner.height * 0.38;
+
+    final Rect treeLog = Rect.fromCenter(
+      center: Offset(logCx, logCy),
+      width: logW,
+      height: logH,
+    );
+
+    namedSolids.add((rect: treeLog, name: 'Tree Log'));
+
+    // Register collision solids (bushes + log)
     game.setNamedSolids(namedSolids);
   }
 
