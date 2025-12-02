@@ -359,7 +359,7 @@ class SaferAdventureGame extends FlameGame {
   List<Rect> get killZones => _killZones;
 
   // toggleable debug outlines
-  bool debugZones = false; // turn off for release
+  bool debugZones = true; // turn off for release
 
 
   // Checklist & overlay
@@ -1193,7 +1193,11 @@ class SaferAdventureGame extends FlameGame {
     } else if (room == Room.kitchen) {
       add(Doorway(
         rect: kitchenDoors['toLiving']!,
-        label: '← Living',
+        label: '← Living Room',
+        // darker background so it stands out on the white floor
+        color: Colors.black.withOpacity(0.28),
+        // darker text so it’s readable against the light floor
+        textColor: Colors.black.withOpacity(0.95),
         onEnter: () async {
           HapticFeedback.selectionClick();
           await _goTo(Room.living, spawnFrom: 'toKitchen');
@@ -1237,7 +1241,7 @@ class SaferAdventureGame extends FlameGame {
       if (!checklist.fridgeChecked) {
         add(Doorway(
           rect: fridgeDoorRect,
-          label: 'Fridge Check',
+          label: '',
           color: Colors.black.withOpacity(0.35),
           onEnter: () async {
             HapticFeedback.selectionClick();
@@ -2892,105 +2896,106 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     // collision solids
     final List<({Rect rect, String name})> namedSolids = [];
 
-    final double rightPad          = 8.0;
-    const double RIGHT_DEPTH_BASE  = 56.0;
-    const double PROTRUDE_PX       = 12.0;
+    const double rightPad = 8.0;
+    final double rightEdge = inner.right - rightPad;
 
-    // Heights by proportion so the stack fills from top down to the fridge top
-    final double ovenH    = inner.height * 0.18;
-    final double sinkH    = inner.height * 0.22;
-    final double counterH = inner.height * 0.24;
+    // Heights as proportions of the inner height
+    final double topCounterH = inner.height * 0.19;
+    final double ovenH       = inner.height * 0.20;
+    final double sinkH       = inner.height * 0.20;
 
-    final double ovenW_base    = 64.0;
-    final double sinkW_base    = 66.0;
-    final double counterW_base = 60.0;
+    // how far they stick out from the wall
+    const double topCounterDepth = 70.0;
+    const double ovenDepth       = 84.0;
+    const double sinkDepth       = 80.0;
+    const double fridgeDepth     = 100.0;
 
-    final double ovenW    = ovenW_base    + PROTRUDE_PX;
-    final double sinkW    = sinkW_base    + PROTRUDE_PX;
-    final double counterW = counterW_base + PROTRUDE_PX;
+    const double WALL_TOP_OFFSET = 16.0;
+    double wallY = inner.top + WALL_TOP_OFFSET; 
 
-    final double maxTop3W   = math.max(ovenW, math.max(sinkW, counterW));
-    final double alignedLeft = inner.right - rightPad - maxTop3W;
+    // Top built-in counter / cabinets
+    const double COUNTER_VISUAL_OFFSET = -16.0;
+    const double COUNTER_EXTRA_HEIGHT  = 120.0;
 
-    // Stack from the very top
-    double y = inner.top;
+    final double counterY = wallY + COUNTER_VISUAL_OFFSET;
 
-    // oven
-    final Rect ovenRect = Rect.fromLTWH(alignedLeft, y, ovenW, ovenH);
-    namedSolids.add((rect: ovenRect, name: 'Oven'));
-    y += ovenH;
-
-    // sink
-    final Rect sinkRect = Rect.fromLTWH(alignedLeft, y, sinkW, sinkH);
-    namedSolids.add((rect: sinkRect, name: 'Sink'));
-    y += sinkH;
-
-    // right counter
-    const double COUNTER_PULL_TOWARD_WALL = 8.0;
-    const double COUNTER_LESS_PROTRUDE    = 2.0;
-
-    final double counterW_narrow = (counterW_base + PROTRUDE_PX - COUNTER_LESS_PROTRUDE).clamp(44.0, 999.0);
-
-    final double counterLeft = alignedLeft + COUNTER_PULL_TOWARD_WALL;
-
-    final Rect rightCounterRect = Rect.fromLTWH(counterLeft, y, counterW_narrow, counterH);
-    namedSolids.add((rect: rightCounterRect, name: 'Counter'));
-    y += counterH;
-
-    const double TOE_KICK_WIDTH = 70.0;  // thin strip that hugs the wall to the floor
-    final double toeKickLeft = inner.right - rightPad - TOE_KICK_WIDTH;
-    final Rect counterToeKick = Rect.fromLTWH(
-      toeKickLeft,
-      rightCounterRect.bottom,
-      TOE_KICK_WIDTH,
-      (inner.bottom - rightCounterRect.bottom).clamp(0.0, double.infinity),
+    final Rect wallCounterRect = Rect.fromLTWH(
+      rightEdge - topCounterDepth,
+      counterY,
+      topCounterDepth,
+      topCounterH + COUNTER_EXTRA_HEIGHT,
     );
-    if (counterToeKick.height > 0) {
-      namedSolids.add((rect: counterToeKick, name: 'Counter'));
-    }
+    namedSolids.add((rect: wallCounterRect, name: 'Counter'));
 
-    // fridge sizing
-    final double baseFridgeH = inner.height - (ovenH + sinkH + counterH);
+    wallY += topCounterH;
 
-    // tuners
-    const double FRIDGE_HEIGHT_SCALE = 0.50;
-    const double FRIDGE_PROTRUDE_PX  = 14.0;
+    const double OVEN_VISUAL_OFFSET = 108.0;
 
-    final double fridgeWBase = 72.0;
-    final double fridgeW     = fridgeWBase + FRIDGE_PROTRUDE_PX;
-    final double fridgeH     = baseFridgeH * FRIDGE_HEIGHT_SCALE;
+    final double ovenY = wallY + OVEN_VISUAL_OFFSET;
 
-    final double fridgeRight = inner.right - rightPad;
-    final double fridgeX     = fridgeRight - fridgeW;
-    final double fridgeY     = inner.bottom - fridgeH;
+    final Rect ovenRect = Rect.fromLTWH(
+      rightEdge - ovenDepth,
+      ovenY,
+      ovenDepth,
+      ovenH,
+    );
+    namedSolids.add((rect: ovenRect, name: 'Oven'));
 
-    final Rect fridgeRect = Rect.fromLTWH(fridgeX, fridgeY, fridgeW, fridgeH);
+    wallY += ovenH;
+
+    // SINK
+    const double SINK_VERTICAL_OFFSET = 120.0;
+
+    final Rect sinkRect = Rect.fromLTWH(
+      rightEdge - sinkDepth,
+      wallY + SINK_VERTICAL_OFFSET,
+      sinkDepth,
+      sinkH,
+    );
+    namedSolids.add((rect: sinkRect, name: 'Sink'));
+
+    // Fridge
+    const double FRIDGE_HEIGHT = 95.0;
+    const double FRIDGE_BOTTOM_PAD = 6.0;
+    const double FRIDGE_DEPTH = 95.0;
+
+    final double fridgeRight  = rightEdge;
+    final double fridgeBottom = inner.bottom - FRIDGE_BOTTOM_PAD;
+    final double fridgeTop    = fridgeBottom - FRIDGE_HEIGHT;
+
+    final Rect fridgeRect = Rect.fromLTWH(
+      fridgeRight - FRIDGE_DEPTH,
+      fridgeTop,
+      FRIDGE_DEPTH,
+      FRIDGE_HEIGHT,
+    );
     namedSolids.add((rect: fridgeRect, name: 'Fridge'));
 
-    // bottom left corner
-    // Tunables
-    const double BL_COUNTER_WIDTH   = 68.0;
-    const double BL_COUNTER_HEIGHT  = 240.0;
-    const double BL_COUNTER_TOP_PAD = 0.0;
+    // kitchen island + 3 stools on the LEFT side
+    const double BL_ISLAND_WIDTH      = 48.0;
+    const double BL_ISLAND_HEIGHT     = 144.0;
+    const double BL_ISLAND_BOTTOM_PAD = 0.0; 
 
-    final Rect blCounter = Rect.fromLTWH(
-      rect.left,
-      rect.bottom - BL_COUNTER_HEIGHT - BL_COUNTER_TOP_PAD,
-      BL_COUNTER_WIDTH,
-      BL_COUNTER_HEIGHT + BL_COUNTER_TOP_PAD
+    // Keep the same left anchor so it stays in the same column
+    final double islandLeft = inner.left + inner.width * 0.14;
+    final Rect blIsland = Rect.fromLTWH(
+      islandLeft,
+      inner.bottom - BL_ISLAND_HEIGHT - BL_ISLAND_BOTTOM_PAD,
+      BL_ISLAND_WIDTH,
+      BL_ISLAND_HEIGHT,
     );
-    namedSolids.add((rect: blCounter, name: 'Counter'));
+    namedSolids.add((rect: blIsland, name: 'Kitchen Island'));
 
-    // vertical bar stools
-    const int    BL_STOOL_COUNT    = 4;
-    const double BL_STOOL_W        = 22.0;
-    const double BL_STOOL_H        = 18.0;
-    const double BL_STOOL_GAP_Y    = 28.0;
-    const double BL_STOOL_RIGHT_DX = 10.0;
-    const double BL_STOOL_TOP_PAD  = 30.0;
+    // Vertical stools island
+    const int    BL_STOOL_COUNT    = 3;
+    const double BL_STOOL_W        = 28.0;
+    const double BL_STOOL_H        = 24.0;
+    const double BL_STOOL_GAP_Y    = 22.0;
+    const double BL_STOOL_LEFT_DX  = 8.0;
+    const double BL_STOOL_TOP_PAD  = 10.0;
 
-    double stoolX = blCounter.right + BL_STOOL_RIGHT_DX;
-    double stoolY = blCounter.top + BL_STOOL_TOP_PAD;
+    double stoolX = blIsland.left - BL_STOOL_LEFT_DX - BL_STOOL_W;
+    double stoolY = blIsland.top + BL_STOOL_TOP_PAD;
 
     for (int i = 0; i < BL_STOOL_COUNT; i++) {
       final Rect stool = Rect.fromLTWH(
@@ -3002,29 +3007,18 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
       namedSolids.add((rect: stool, name: 'Bar Stool'));
     }
 
-
     // top left dining table + chairs
-    const double TBL_ANCHOR_LEFT_PCT  = 0.07;
-    const double TBL_ANCHOR_TOP_PCT   = 0.18; 
-    const double TBL_WIDTH_PCT        = 0.32; 
-    const double TBL_HEIGHT_PX        = 28.0; 
+    const double TBL_ANCHOR_LEFT_PCT  = 0.27;
+    const double TBL_ANCHOR_TOP_PCT   = 0.22;
+    const double TBL_WIDTH_PCT        = 0.27;
+    const double TBL_HEIGHT_PX        = 132.0;
 
-    const double TBL_DX_PX            = -14.0;
-    const double TBL_DY_PX            = -20.0;
+    const double TBL_DX_PX            = -10.0;
+    const double TBL_DY_PX            = -12.0;
 
-    // Chair layout
-    const int    CH_COUNT_PER_SIDE    = 3;
-    const double CH_WIDTH_PX          = 20.0;
-    const double CH_HEIGHT_PX         = 15.0;
-
-    // Horizontal spacing relative to the table
-    const double CH_EDGE_INSET_PX     = 36.0;
-    // Vertical spacing relative to the table
-    const double CH_AWAY_FROM_EDGE_PX = 8.0;
-
-    // Global nudges for ALL chairs at once
-    const double CH_GLOBAL_DX_PX      = 0.0;
-    const double CH_GLOBAL_DY_PX      = 0.0;
+    const int    SIDE_CHAIRS_PER_COL  = 3;
+    const double CH_WIDTH_PX          = 24.0;
+    const double CH_HEIGHT_PX         = 20.0;
 
     // compute table rect from inner room rect
     final Rect _kInner = inner;
@@ -3032,72 +3026,47 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
     final double tblH  = TBL_HEIGHT_PX;
 
     final Offset tblCenter = Offset(
-      _kInner.left + _kInner.width  * TBL_ANCHOR_LEFT_PCT + tblW * 0.75 + TBL_DX_PX,
+      _kInner.left + _kInner.width  * TBL_ANCHOR_LEFT_PCT + tblW * 0.5 + TBL_DX_PX,
       _kInner.top  + _kInner.height * TBL_ANCHOR_TOP_PCT  + TBL_DY_PX,
     );
 
     final Rect tableRect = Rect.fromCenter(center: tblCenter, width: tblW, height: tblH);
     namedSolids.add((rect: tableRect, name: 'Dining Table'));
 
-    // chair X positions
-    final double leftX  = tableRect.left  + CH_EDGE_INSET_PX;
-    final double rightX = tableRect.right - CH_EDGE_INSET_PX;
-    List<double> _chairXs(int count) {
-      if (count <= 1) return [tableRect.center.dx];
-      if (count == 2) return [leftX, rightX];
-      if (count == 3) return [leftX, tableRect.center.dx, rightX];
-      final List<double> xs = [];
-      final double step = (rightX - leftX) / (count - 1);
-      for (int i = 0; i < count; i++) xs.add(leftX + i * step);
-      return xs;
-    }
-    final xs = _chairXs(CH_COUNT_PER_SIDE);
+    // Helper to build a chair rect by center
+    Rect _chairAt(double cx, double cy) => Rect.fromCenter(
+          center: Offset(cx, cy),
+          width: CH_WIDTH_PX,
+          height: CH_HEIGHT_PX,
+        );
 
-    // chair Y positions
-    final double topCY    = tableRect.top    - CH_AWAY_FROM_EDGE_PX;
-    final double bottomCY = tableRect.bottom + CH_AWAY_FROM_EDGE_PX;
+    // SIDE CHAIRS
+    final double sideTopY = tableRect.top + CH_HEIGHT_PX / 2 + 12;
+    final double sideBottomY = tableRect.bottom - CH_HEIGHT_PX / 2;
+    final double sideStepY   =
+        (sideBottomY - sideTopY) / (SIDE_CHAIRS_PER_COL - 1) * 0.75 ;
 
-    Rect _chair(double cx, double cy) => Rect.fromCenter(
-      center: Offset(cx + CH_GLOBAL_DX_PX, cy + CH_GLOBAL_DY_PX),
-      width: CH_WIDTH_PX,
-      height: CH_HEIGHT_PX,
-    );
+    for (int i = 0; i < SIDE_CHAIRS_PER_COL; i++) {
+      final double cy = sideTopY + i * sideStepY;
 
-    // Top row
-    for (final cx in xs) {
-      namedSolids.add((rect: _chair(cx, topCY), name: 'Chair'));
-    }
-    // Bottom row
-    for (final cx in xs) {
-      namedSolids.add((rect: _chair(cx, bottomCY), name: 'Chair'));
+      // left column chairs
+      final double leftCx = tableRect.left - CH_WIDTH_PX / 2;
+      namedSolids.add((rect: _chairAt(leftCx, cy), name: 'Chair'));
+
+      // right columnm chairs
+      final double rightCx = tableRect.right + CH_WIDTH_PX / 2;
+      namedSolids.add((rect: _chairAt(rightCx, cy), name: 'Chair'));
     }
 
+    // TOP center chair
+    final double topCx = tableRect.center.dx;
+    final double topCy = tableRect.top - CH_HEIGHT_PX / 2;
+    namedSolids.add((rect: _chairAt(topCx, topCy), name: 'Chair'));
 
-    // Chairs
-    final double chairW = 20.0, chairH = 15.0;
-    final double edgeInset = 36.0;
-    final double sidePad   = 16.0;
-    final List<double> chairXs = [
-      tableRect.left + edgeInset,
-      tableRect.center.dx,
-      tableRect.right - edgeInset,
-    ];
-    // top row
-    for (final cx in chairXs) {
-      final Rect c = Rect.fromCenter(
-        center: Offset(cx, tableRect.top - sidePad),
-        width: chairW, height: chairH,
-      );
-      namedSolids.add((rect: c, name: 'Chair'));
-    }
-    // bottom row
-    for (final cx in chairXs) {
-      final Rect c = Rect.fromCenter(
-        center: Offset(cx, tableRect.bottom + sidePad),
-        width: chairW, height: chairH,
-      );
-      namedSolids.add((rect: c, name: 'Chair'));
-    }
+    // BOTTOM center chair
+    final double bottomCx = tableRect.center.dx;
+    final double bottomCy = tableRect.bottom + CH_HEIGHT_PX / 2;
+    namedSolids.add((rect: _chairAt(bottomCx, bottomCy), name: 'Chair'));
 
     // debug outlines
     if ((gameRef).debugZones) {
@@ -3250,8 +3219,8 @@ class RoomBox extends PositionComponent with HasGameRef<SaferAdventureGame> {
 
     // Horizontal box at the bottom of the L
     final double horizX = H_ON_LEFT
-        ? (colX - BX_GAP - BX_W)   // extend to the LEFT
-        : (colX + BX_W + BX_GAP);  // extend to the RIGHT
+        ? (colX - BX_GAP - BX_W) 
+        : (colX + BX_W + BX_GAP); 
     final Rect boxSide  = Rect.fromLTWH(horizX, colY, BX_W, BX_H);
 
     // Add all three with the same display name

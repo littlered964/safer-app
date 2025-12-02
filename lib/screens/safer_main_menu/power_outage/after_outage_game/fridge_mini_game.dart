@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flame/components.dart';
@@ -15,7 +14,7 @@ typedef FridgeMiniGameResult = void Function({
 });
 
 class FridgeMiniGame extends PositionComponent
-    with DragCallbacks, TapCallbacks, HasGameRef<FlameGame> {
+    with TapCallbacks, HasGameRef<FlameGame> {
   FridgeMiniGame({
     required this.onFinished,
     this.onCancel,
@@ -41,34 +40,79 @@ class FridgeMiniGame extends PositionComponent
 
   // queue of items: appears exactly once, one at a time
   late final List<_FoodItemSpec> _queueSpecs = [
-    _FoodItemSpec('burgerBad',  'assets/images/burgerBad.png',  true),
-    _FoodItemSpec('burgerGood', 'assets/images/burgerGood.png', false),
-    _FoodItemSpec('cheeseBad',  'assets/images/cheeseBad.png',  true),
-    _FoodItemSpec('eggsGood',   'assets/images/eggsGood.png',   false),
-    _FoodItemSpec('eggsBad',    'assets/images/eggsBad.png',    true),
-    _FoodItemSpec('milkBad',    'assets/images/milkBad.png',    true),
-    _FoodItemSpec('yogurtGood', 'assets/images/yogurtGood.png', false),
+    _FoodItemSpec(
+      id: 'burgerBad',
+      asset: 'assets/images/burgerBad.png',
+      isBad: true,
+      label: 'Burger',
+      expiration: '3 days ago',
+      note: 'Looks gray and smells funky.',
+    ),
+    _FoodItemSpec(
+      id: 'burgerGood',
+      asset: 'assets/images/burgerGood.png',
+      isBad: false,
+      label: 'Burger',
+      expiration: 'In 2 days',
+      note: 'Color looks fresh and normal.',
+    ),
+    _FoodItemSpec(
+      id: 'cheeseBad',
+      asset: 'assets/images/cheeseBad.png',
+      isBad: true,
+      label: 'Cheese',
+      expiration: '1 week ago',
+      note: 'Visible mold spots on the surface.',
+    ),
+    _FoodItemSpec(
+      id: 'eggsGood',
+      asset: 'assets/images/eggsGood.png',
+      isBad: false,
+      label: 'Eggs',
+      expiration: '2027',
+      note: 'Shells look clean and intact.',
+    ),
+    _FoodItemSpec(
+      id: 'eggsBad',
+      asset: 'assets/images/eggsBad.png',
+      isBad: true,
+      label: 'Eggs',
+      expiration: '10 days ago',
+      note: 'Shells are cracked and smell bad.',
+    ),
+    _FoodItemSpec(
+      id: 'milkBad',
+      asset: 'assets/images/milkBad.png',
+      isBad: true,
+      label: 'Milk',
+      expiration: '4 days ago',
+      note: 'Smells sour and looks chunky.',
+    ),
+    _FoodItemSpec(
+      id: 'yogurtGood',
+      asset: 'assets/images/yogurtGood.png',
+      isBad: false,
+      label: 'Yogurt',
+      expiration: '2027',
+      note: 'Sealed and looks normal.',
+    ),
   ];
 
-  // current item and index
-  _FoodCard? _current;
+  // current index
   int _queueIndex = 0;
-
-  // zones
-  ui.Rect? _trashZone;
-  ui.Rect? _fridgeZone;
 
   // results
   int _tossedBad = 0;
   int _savedGood = 0;
 
-  // drag
-  _FoodCard? _dragging;
-
   // finish guard to ensure overlay closes exactly once
   bool _closing = false;
 
-  // high-contrast accent for headings/counters
+  // for tap handling on decision buttons
+  ui.Rect? _keepBtnRect;
+  ui.Rect? _trashBtnRect;
+
+  // high-contrast accent (used rarely now)
   static const ui.Color _uiAccent = ui.Color(0xFF8A8A8A);
 
   @override
@@ -83,15 +127,11 @@ class FridgeMiniGame extends PositionComponent
     for (final spec in _queueSpecs) {
       _images[spec.asset] = await gameRef.images.load(spec.asset);
     }
-
-    _buildLayout();
-    _spawnCurrent();
   }
 
   @override
   void onMount() {
     super.onMount();
-    // safe to run fades now
     _runIntroFade();
   }
 
@@ -104,81 +144,58 @@ class FridgeMiniGame extends PositionComponent
   void onGameResize(Vector2 canvasSize) {
     super.onGameResize(canvasSize);
     size = canvasSize;
-    _buildLayout();
-    _placeOnShelf(_current);
 
     // keep fade sized correctly
     _fade.size = size;
     _fade.position = Vector2.zero();
   }
 
-  // layout
-
   ui.Rect _innerRect() => ui.Rect.fromLTWH(12, 12, size.x - 24, size.y - 24);
 
-  void _buildLayout() {
-    final inner = _innerRect();
-    final h = size.y;
+  bool get _done => _queueIndex >= _queueSpecs.length;
 
-    final zonesTop = inner.bottom - math.max(120.0, h * 0.22);
-    final zonePad = 12.0;
-    final zoneW = (inner.width - zonePad) / 2;
-
-    _trashZone  = ui.Rect.fromLTWH(inner.left, zonesTop, zoneW, inner.bottom - zonesTop);
-    _fridgeZone = ui.Rect.fromLTWH(inner.left + zoneW + zonePad, zonesTop, zoneW, inner.bottom - zonesTop);
-  }
-
-  void _placeOnShelf(_FoodCard? it) {
-    if (it == null) return;
-    final shelfY = size.y * 0.5 + size.y * 0.08; // a tad below center
-    it.pos
-      ..x = size.x * 0.5
-      ..y = shelfY;
-    it.home.setFrom(it.pos);
-  }
-
-  void _spawnCurrent() {
-    if (_closing) return; // if we’re finishing, don’t spawn again
-    if (_queueIndex >= _queueSpecs.length) {
-      // show congrats instead of exiting immediately
-      _showCongrats = true;
-      return;
-    }
-    final spec = _queueSpecs[_queueIndex];
-    final img  = _images[spec.asset]!;
-    _current = _FoodCard(image: img, sizePx: Vector2(160, 160), isBad: spec.isBad);
-    _placeOnShelf(_current);
-  }
+  _FoodItemSpec? get _currentSpec =>
+      _done ? null : _queueSpecs[_queueIndex];
 
   // input
 
   @override
   void onTapUp(TapUpEvent e) {
-    // handle overlay buttons first; gameplay taps otherwise
     final p = e.localPosition;
+    final pos = ui.Offset(p.x, p.y);
 
     if (_showHowTo) {
-      _handleHowToTap(p);
-      e.handled = true;
-      return;
-    }
-    if (_showCongrats) {
-      _handleCongratsTap(p);
+      _handleHowToTap(pos);
       e.handled = true;
       return;
     }
 
-    _dragging = null;
+    if (_showCongrats) {
+      _handleCongratsTap(pos);
+      e.handled = true;
+      return;
+    }
+
+    // check Keep / Trash buttons
+    if (_keepBtnRect != null && _keepBtnRect!.contains(pos)) {
+      e.handled = true;
+      _handleChoice(keep: true);
+      return;
+    }
+    if (_trashBtnRect != null && _trashBtnRect!.contains(pos)) {
+      e.handled = true;
+      _handleChoice(keep: false);
+      return;
+    }
   }
 
-  void _handleHowToTap(Vector2 p) {
+  void _handleHowToTap(ui.Offset pos) {
     final s = gameRef.size;
     const btnW = 130.0, btnH = 44.0, gap = 14.0;
     final cy = (s.y * 0.62).clamp(220.0, s.y - 80.0).toDouble();
 
     final playRect = _btnRectCenter(s.x / 2 - (btnW + gap) / 2, cy, btnW, btnH);
     final exitRect = _btnRectCenter(s.x / 2 + (btnW + gap) / 2, cy, btnW, btnH);
-    final pos = ui.Offset(p.x, p.y);
 
     if (playRect.contains(pos)) {
       () async {
@@ -198,91 +215,55 @@ class FridgeMiniGame extends PositionComponent
     }
   }
 
-  void _handleCongratsTap(Vector2 p) {
+  void _handleCongratsTap(ui.Offset pos) {
     final s = gameRef.size;
     const btnW = 130.0, btnH = 44.0;
     final cy = (s.y * 0.64).clamp(220.0, s.y - 80.0).toDouble();
     final closeRect = _btnRectCenter(s.x / 2, cy, btnW, btnH);
-    final pos = ui.Offset(p.x, p.y);
 
     if (closeRect.contains(pos)) {
-      // No local fade here
-      _finishNow(); // calls onFinished and removes self
+      _finishNow();
     }
   }
 
-  @override
-  void onDragStart(DragStartEvent e) {
-    if (_closing || _showHowTo || _showCongrats) return;
-    final p = e.canvasPosition;
-    final it = _current;
-    if (it != null && it.rect.contains(ui.Offset(p.x, p.y))) {
-      _dragging = it;
-      HapticFeedback.selectionClick();
-    }
-  }
+  void _handleChoice({required bool keep}) {
+    if (_done) return;
+    final spec = _queueSpecs[_queueIndex];
 
-  @override
-  void onDragUpdate(DragUpdateEvent e) {
-    if (_closing || _showHowTo || _showCongrats || _dragging == null) return;
-    final d = e.canvasDelta;
-    _dragging!.pos.x += d.x;
-    _dragging!.pos.y += d.y;
-  }
+    final bool isCorrect =
+        keep ? !spec.isBad : spec.isBad; // keep good, trash bad
 
-  @override
-  void onDragEnd(DragEndEvent e) {
-    if (_closing || _showHowTo || _showCongrats || _dragging == null) return;
-    final it = _dragging!;
-    _dragging = null;
-
-    final center = it.rect.center;
-    final inTrash  = _trashZone!.contains(center);
-    final inFridge = _fridgeZone!.contains(center);
-
-    if (inTrash) {
-      if (it.isBad) {
+    if (isCorrect) {
+      if (spec.isBad) {
         _tossedBad++;
-        HapticFeedback.lightImpact();
-        _advanceQueue();
       } else {
-        it.pos.setFrom(it.home);
-        HapticFeedback.vibrate();
-      }
-    } else if (inFridge) {
-      if (!it.isBad) {
         _savedGood++;
-        HapticFeedback.lightImpact();
-        _advanceQueue();
-      } else {
-        it.pos.setFrom(it.home);
-        HapticFeedback.vibrate();
       }
+      HapticFeedback.lightImpact();
     } else {
-      it.pos.setFrom(it.home);
+      HapticFeedback.vibrate();
     }
-  }
 
-  @override
-  void onDragCancel(DragCancelEvent e) {
-    _dragging = null;
-  }
-
-  void _advanceQueue() {
     _queueIndex++;
-    _spawnCurrent();
+
+    if (_queueIndex >= _queueSpecs.length) {
+      _showCongrats = true;
+    }
   }
 
   Future<void> _finishNow() async {
-    if (_closing) return;    // hard guard
+    if (_closing) return; // hard guard
     _closing = true;
 
-    final total   = _queueSpecs.length;
+    final total = _queueSpecs.length;
     final perfect = (_tossedBad + _savedGood) == total;
 
-    onFinished(tossedBad: _tossedBad, savedGood: _savedGood, perfect: perfect);
+    onFinished(
+      tossedBad: _tossedBad,
+      savedGood: _savedGood,
+      perfect: perfect,
+    );
 
-    // small delay to ensure we don't process further input
     await Future<void>.delayed(const Duration(milliseconds: 1));
     removeFromParent();
   }
@@ -293,13 +274,24 @@ class FridgeMiniGame extends PositionComponent
   void render(ui.Canvas c) {
     final inner = _innerRect();
 
-    // background
+    // background fridge art
     if (_bg != null) {
-      final clip = ui.RRect.fromRectAndRadius(inner, const ui.Radius.circular(14));
+      final clip =
+          ui.RRect.fromRectAndRadius(inner, const ui.Radius.circular(14));
       c.save();
       c.clipRRect(clip);
-      final src = ui.Rect.fromLTWH(0, 0, _bg!.width.toDouble(), _bg!.height.toDouble());
-      c.drawImageRect(_bg!, src, inner, ui.Paint()..filterQuality = ui.FilterQuality.none);
+      final src = ui.Rect.fromLTWH(
+        0,
+        0,
+        _bg!.width.toDouble(),
+        _bg!.height.toDouble(),
+      );
+      c.drawImageRect(
+        _bg!,
+        src,
+        inner,
+        ui.Paint()..filterQuality = ui.FilterQuality.none,
+      );
       c.restore();
     } else {
       _fillRRect(
@@ -309,121 +301,168 @@ class FridgeMiniGame extends PositionComponent
       );
     }
 
-    // headings/counters
-    _drawText(
-      c,
-      'Fridge Check',
-      at: ui.Offset(inner.left + 16, inner.top + 14),
-      style: const TextStyle(
-        color: _uiAccent,
-        fontSize: 18,
-        fontWeight: ui.FontWeight.w700,
-      ),
-    );
-    _drawText(
-      c,
-      'Drag spoiled food ➜ TRASH   |   Safe food ➜ FRIDGE',
-      at: ui.Offset(inner.left + 16, inner.top + 40),
-      style: const TextStyle(
-        color: _uiAccent,
-        fontSize: 12,
-        fontWeight: ui.FontWeight.w500,
-      ),
-    );
-    _drawText(
-      c,
-      'Tossed bad: $_tossedBad   |   Saved good: $_savedGood',
-      at: ui.Offset(inner.left + 16, inner.top + 64),
-      style: const TextStyle(
-        color: _uiAccent,
-        fontSize: 12,
-        fontWeight: ui.FontWeight.w600,
-      ),
-    );
-
-    // Zones
-    final trash  = _trashZone!;
-    final fridge = _fridgeZone!;
-
-    _fillRRect(
-      c,
-      ui.RRect.fromRectAndRadius(trash, const ui.Radius.circular(12)),
-      const ui.Color(0x33FF0000),
-    );
-    _strokeRRect(
-      c,
-      ui.RRect.fromRectAndRadius(trash, const ui.Radius.circular(12)),
-      const ui.Color(0x66FF0000),
-      2,
-    );
-    _drawCenteredText(
-      c,
-      'TRASH 🗑️',
-      rect: trash,
-      style: const TextStyle(
-        color: _uiAccent,
-        fontSize: 16,
-        fontWeight: ui.FontWeight.w700,
-      ),
-      dy: -18,
-    );
-
-    _fillRRect(
-      c,
-      ui.RRect.fromRectAndRadius(fridge, const ui.Radius.circular(12)),
-      const ui.Color(0x3300AA66),
-    );
-    _strokeRRect(
-      c,
-      ui.RRect.fromRectAndRadius(fridge, const ui.Radius.circular(12)),
-      const ui.Color(0x6600AA66),
-      2,
-    );
-    _drawCenteredText(
-      c,
-      'FRIDGE 🧊',
-      rect: fridge,
-      style: const TextStyle(
-        color: _uiAccent,
-        fontSize: 16,
-        fontWeight: ui.FontWeight.w700,
-      ),
-      dy: -18,
-    );
-
-    // current item
-    if (_current != null) {
-      _drawItem(c, _current!);
-    }
-
     // overlays last
     if (_showHowTo) {
       _renderHowTo(c);
     } else if (_showCongrats) {
       _renderCongrats(c);
+    } else {
+      _renderDecisionDialog(c);
     }
   }
 
-  void _drawItem(ui.Canvas c, _FoodCard it) {
-    final dst = it.rect;
+  void _renderDecisionDialog(ui.Canvas canvas) {
+    final spec = _currentSpec;
+    if (spec == null) return;
 
-    // subtle shadow
-    c.drawRRect(
-      ui.RRect.fromRectAndRadius(dst.inflate(6), const ui.Radius.circular(14)),
-      ui.Paint()..color = const ui.Color(0x22000000),
+    final img = _images[spec.asset];
+
+    final s = gameRef.size;
+    final double w = (s.x * 0.86).clamp(280.0, 520.0);
+    final double h = (s.y * 0.63).clamp(260.0, 420.0);
+    final ui.Rect panelRect =
+        ui.Rect.fromLTWH((s.x - w) / 2, s.y - h - 20, w, h);
+
+    // darkened backdrop
+    canvas.drawRect(
+      ui.Rect.fromLTWH(0, 0, s.x, s.y),
+      ui.Paint()..color = const ui.Color(0xAA000000),
     );
 
-    final clip = ui.RRect.fromRectAndRadius(dst, const ui.Radius.circular(12));
-    c.save();
-    c.clipRRect(clip);
+    // dialog bubble
+    final ui.RRect bubble =
+        ui.RRect.fromRectAndRadius(panelRect, const ui.Radius.circular(16));
+    canvas.drawRRect(
+      bubble,
+      ui.Paint()..color = const ui.Color(0xFFFAFAFA),
+    );
 
-    final src = ui.Rect.fromLTWH(0, 0, it.image.width.toDouble(), it.image.height.toDouble());
-    c.drawImageRect(it.image, src, dst, ui.Paint()..filterQuality = ui.FilterQuality.none);
+    // Image at the top of the bubble
+    if (img != null) {
+      const double imgPad = 14.0;
+      const double imgH = 200.0;
 
-    c.restore();
+      final ui.Rect imgRect = ui.Rect.fromLTWH(
+        panelRect.left + imgPad,
+        panelRect.top + imgPad,
+        panelRect.width - imgPad * 2,
+        imgH,
+      );
+
+      final ui.RRect imgClip = ui.RRect.fromRectAndRadius(
+        imgRect,
+        const ui.Radius.circular(10),
+      );
+      canvas.save();
+      canvas.clipRRect(imgClip);
+
+      final ui.Rect src = ui.Rect.fromLTWH(
+        0,
+        0,
+        img.width.toDouble(),
+        img.height.toDouble(),
+      );
+      canvas.drawImageRect(
+        img,
+        src,
+        imgRect,
+        ui.Paint()..filterQuality = ui.FilterQuality.none,
+      );
+      canvas.restore();
+    }
+
+    // Text lines under the image
+    const double textPadX = 16.0;
+    double textY = panelRect.top + 220.0;
+
+    void drawLine(String label, String value) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '$label ',
+          style: const TextStyle(
+            color: ui.Color(0xFF000000),
+            fontSize: 14,
+            fontWeight: ui.FontWeight.w700,
+          ),
+          children: [
+            TextSpan(
+              text: value,
+              style: const TextStyle(
+                color: ui.Color(0xFF333333),
+                fontSize: 14,
+                fontWeight: ui.FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout(maxWidth: panelRect.width - textPadX * 2);
+
+      tp.paint(canvas, ui.Offset(panelRect.left + textPadX, textY));
+      textY += tp.height + 6;
+    }
+
+    drawLine('Item:', spec.label);
+    drawLine('Expiration:', spec.expiration);
+    drawLine('Note:', spec.note);
+
+    // Buttons at the bottom
+    const double btnW = 110.0;
+    const double btnH = 40.0;
+    const double btnGap = 18.0;
+    final double btnCy = panelRect.bottom - 20.0 - btnH / 2;
+
+    final ui.Rect trashRect = ui.Rect.fromCenter(
+      center: ui.Offset(
+        panelRect.center.dx - (btnW / 2 + btnGap / 2),
+        btnCy,
+      ),
+      width: btnW,
+      height: btnH,
+    );
+
+    final ui.Rect keepRect = ui.Rect.fromCenter(
+      center: ui.Offset(
+        panelRect.center.dx + (btnW / 2 + btnGap / 2),
+        btnCy,
+      ),
+      width: btnW,
+      height: btnH,
+    );
+
+    // store for tap handling
+    _trashBtnRect = trashRect;
+    _keepBtnRect = keepRect;
+
+    void drawButton(ui.Rect r, String label, ui.Color color) {
+      final ui.RRect rr =
+          ui.RRect.fromRectAndRadius(r, const ui.Radius.circular(8));
+      canvas.drawRRect(rr, ui.Paint()..color = color);
+
+      final tp = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: const TextStyle(
+            color: ui.Color(0xFFFFFFFF),
+            fontSize: 15,
+            fontWeight: ui.FontWeight.w700,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout();
+
+      tp.paint(
+        canvas,
+        ui.Offset(
+          r.center.dx - tp.width / 2,
+          r.center.dy - tp.height / 2,
+        ),
+      );
+    }
+
+    drawButton(trashRect, 'TRASH', const ui.Color(0xFFC62828));
+    drawButton(keepRect, 'KEEP', const ui.Color(0xFF2E7D32));
   }
-
-  // overlay rendering
 
   void _renderPanel(
     ui.Canvas canvas,
@@ -443,7 +482,8 @@ class FridgeMiniGame extends PositionComponent
     );
 
     // panel
-    final panel = ui.RRect.fromRectAndRadius(panelRect, const ui.Radius.circular(16));
+    final panel =
+        ui.RRect.fromRectAndRadius(panelRect, const ui.Radius.circular(16));
     canvas.drawRRect(panel, ui.Paint()..color = const ui.Color(0xE6000000));
 
     // title
@@ -451,7 +491,11 @@ class FridgeMiniGame extends PositionComponent
       canvas,
       title,
       at: ui.Offset(panelRect.left + 14, panelRect.top + 14),
-      style: const TextStyle(color: ui.Color(0xFFFFFFFF), fontSize: 18, fontWeight: ui.FontWeight.w800),
+      style: const TextStyle(
+        color: ui.Color(0xFFFFFFFF),
+        fontSize: 18,
+        fontWeight: ui.FontWeight.w800,
+      ),
       maxWidth: w - 28,
     );
 
@@ -460,22 +504,37 @@ class FridgeMiniGame extends PositionComponent
       canvas,
       body,
       at: ui.Offset(panelRect.left + 14, panelRect.top + 44),
-      style: const TextStyle(color: ui.Color(0xCCFFFFFF), fontSize: 14, height: 1.35),
+      style: const TextStyle(
+        color: ui.Color(0xCCFFFFFF),
+        fontSize: 14,
+        height: 1.35,
+      ),
       maxWidth: w - 28,
     );
 
     if (buttons != null) {
       for (final b in buttons) {
-        final rr = ui.RRect.fromRectAndRadius(b.rect, const ui.Radius.circular(8));
+        final rr =
+            ui.RRect.fromRectAndRadius(b.rect, const ui.Radius.circular(8));
         canvas.drawRRect(rr, ui.Paint()..color = b.color);
         final tp = TextPainter(
           text: TextSpan(
             text: b.label,
-            style: const TextStyle(color: ui.Color(0xFFFFFFFF), fontSize: 15, fontWeight: ui.FontWeight.w700),
+            style: const TextStyle(
+              color: ui.Color(0xFFFFFFFF),
+              fontSize: 15,
+              fontWeight: ui.FontWeight.w700,
+            ),
           ),
           textDirection: ui.TextDirection.ltr,
         )..layout();
-        tp.paint(canvas, ui.Offset(b.rect.center.dx - tp.width / 2, b.rect.center.dy - tp.height / 2));
+        tp.paint(
+          canvas,
+          ui.Offset(
+            b.rect.center.dx - tp.width / 2,
+            b.rect.center.dy - tp.height / 2,
+          ),
+        );
       }
     }
   }
@@ -488,19 +547,30 @@ class FridgeMiniGame extends PositionComponent
     const btnW = 130.0, btnH = 44.0, gap = 14.0;
     final cy = (s.y * 0.62).clamp(220.0, s.y - 80.0).toDouble();
 
-    final playRect = _btnRectCenter(s.x / 2 - (btnW + gap) / 2, cy, btnW, btnH);
-    final exitRect = _btnRectCenter(s.x / 2 + (btnW + gap) / 2, cy, btnW, btnH);
+    final playRect = _btnRectCenter(
+      s.x / 2 - (btnW + gap) / 2,
+      cy,
+      btnW,
+      btnH,
+    );
+    final exitRect = _btnRectCenter(
+      s.x / 2 + (btnW + gap) / 2,
+      cy,
+      btnW,
+      btnH,
+    );
 
     _renderPanel(
       canvas,
       'Fridge Mini-Game',
-      'Drag each food item into the correct bin:\n'
-      '• Toss spoiled items\n'
-      '• Save good items\n\n'
-      'Finish all items to complete the task.',
+      'Check each item carefully.\n\n'
+      'At the bottom of the screen, you\'ll see:\n'
+      '• Details about the food\n'
+      '• Buttons to KEEP it or TRASH it\n\n'
+      'Try to keep safe food and throw away spoiled food.',
       buttons: [
-        (label: 'Play',  rect: playRect, color: const ui.Color(0xFF2E7D32)),
-        (label: 'Exit',  rect: exitRect, color: const ui.Color(0xFFC62828)),
+        (label: 'Play', rect: playRect, color: const ui.Color(0xFF2E7D32)),
+        (label: 'Exit', rect: exitRect, color: const ui.Color(0xFFC62828)),
       ],
     );
   }
@@ -511,10 +581,15 @@ class FridgeMiniGame extends PositionComponent
     final cy = (s.y * 0.64).clamp(220.0, s.y - 80.0).toDouble();
     final closeRect = _btnRectCenter(s.x / 2, cy, btnW, btnH);
 
+    final int total = _queueSpecs.length;
+
     _renderPanel(
       canvas,
       'Nice work!',
-      'All items sorted correctly.\nThis task is complete.',
+      'You finished checking the fridge.\n\n'
+      'Tossed spoiled: $_tossedBad\n'
+      'Saved safe: $_savedGood\n'
+      'Total items: $total',
       buttons: [
         (label: 'Close', rect: closeRect, color: const ui.Color(0xFF2E7D32)),
       ],
@@ -528,16 +603,13 @@ class FridgeMiniGame extends PositionComponent
     c.drawRRect(rr, p);
   }
 
-  void _strokeRRect(ui.Canvas c, ui.RRect rr, ui.Color color, double width) {
-    final p = ui.Paint()
-      ..color = color
-      ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = width;
-    c.drawRRect(rr, p);
-  }
-
-  void _drawText(ui.Canvas c, String text,
-      {required ui.Offset at, required TextStyle style, double maxWidth = 1000}) {
+  void _drawText(
+    ui.Canvas c,
+    String text, {
+    required ui.Offset at,
+    required TextStyle style,
+    double maxWidth = 1000,
+  }) {
     final tp = TextPainter(
       text: TextSpan(text: text, style: style),
       textDirection: ui.TextDirection.ltr,
@@ -545,47 +617,26 @@ class FridgeMiniGame extends PositionComponent
     )..layout(minWidth: 0, maxWidth: maxWidth);
     tp.paint(c, at);
   }
-
-  void _drawCenteredText(ui.Canvas c, String text,
-      {required ui.Rect rect, required TextStyle style, double dy = 0}) {
-    final tp = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: ui.TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout(minWidth: 0, maxWidth: rect.width);
-    final offset = ui.Offset(
-      rect.left + (rect.width - tp.width) / 2,
-      rect.top + (rect.height - tp.height) / 2 + dy,
-    );
-    tp.paint(c, offset);
-  }
 }
 
 // models
+
 class _FoodItemSpec {
-  final String name;
+  final String id;
   final String asset;
   final bool isBad;
-  _FoodItemSpec(this.name, this.asset, this.isBad);
-}
+  final String label;
+  final String expiration;
+  final String note;
 
-class _FoodCard {
-  _FoodCard({required this.image, required this.sizePx, required this.isBad})
-      : pos = Vector2.zero(),
-        home = Vector2.zero();
-
-  final ui.Image image;
-  final Vector2 sizePx;
-  final bool isBad;
-  final Vector2 pos;
-  final Vector2 home;
-
-  ui.Rect get rect => ui.Rect.fromLTWH(
-        pos.x - sizePx.x / 2,
-        pos.y - sizePx.y / 2,
-        sizePx.x,
-        sizePx.y,
-      );
+  const _FoodItemSpec({
+    required this.id,
+    required this.asset,
+    required this.isBad,
+    required this.label,
+    required this.expiration,
+    required this.note,
+  });
 }
 
 /// Local fade overlay used inside the mini-game only
@@ -603,8 +654,12 @@ class _MiniFade extends PositionComponent {
   @override
   void render(ui.Canvas canvas) {
     if (_alpha <= 0) return;
-    final p = ui.Paint()..color = const ui.Color(0xFF000000).withOpacity(_alpha);
-    canvas.drawRect(ui.Rect.fromLTWH(0, 0, size.x, size.y), p);
+    final p =
+        ui.Paint()..color = const ui.Color(0xFF000000).withOpacity(_alpha);
+    canvas.drawRect(
+      ui.Rect.fromLTWH(0, 0, size.x, size.y),
+      p,
+    );
   }
 
   @override
@@ -627,7 +682,6 @@ class _MiniFade extends PositionComponent {
   }
 
   Future<void> fadeToBlack({double duration = 0.28}) {
-    // cancel any prior waiter
     _anim?.complete();
     _anim = Completer<void>();
 
